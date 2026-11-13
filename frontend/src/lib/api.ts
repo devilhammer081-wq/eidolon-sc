@@ -1,4 +1,4 @@
-import type { AffinityChange, AffinityStatus } from "@/lib/affinity";
+import type { AffinityChange, AffinityStatus, Tier } from "@/lib/affinity";
 import type { Provider } from "@/lib/signIn";
 import {
   forgetOwnKeys,
@@ -153,7 +153,20 @@ export type Message = {
   affinity: AffinityChange | null;
   /** The photo she sent with her reply (GLOSSARY.md「照片」); none on a reply without one. */
   photo?: Photo;
+  /** The interaction action (GLOSSARY.md「互动动作」) the user's message took, by its id;
+   * null (or absent) on every other message, hers included. */
+  interaction_id?: string | null;
 };
+
+/** One interaction action (GLOSSARY.md「互动动作」) as the menu shows it: its id, as turns and
+ * messages carry it, its Chinese name and emoji, and the affinity tier it is meant for
+ * (`recommended_tier`) — any action is offered at any tier. */
+export type Interaction = { id: string; name: string; emoji: string; recommended_tier: Tier };
+
+/** The interaction actions the user may take, in the order the menu shows them. */
+export async function listInteractions(): Promise<Interaction[]> {
+  return json(await api("/api/interactions"));
+}
 
 /** How a photo she sent is coming along: being generated, sent, or not sent after all, and why not. */
 export type PhotoStatus = { status: "pending" | "ready" | "failed"; reason: string | null };
@@ -1056,11 +1069,23 @@ export async function getCallSetup(conversationId: string, own: readonly OwnServ
  * delivery cues as it reads them (`read_aloud_model`, GLOSSARY.md「朗读」); and yields the reply's
  * server-sent events as they arrive.
  */
-export async function* sendTurn(conversationId: string, text: string, userId: string): AsyncGenerator<TurnEvent> {
+export async function* sendTurn(
+  conversationId: string,
+  text: string,
+  userId: string,
+  /** The interaction action (GLOSSARY.md「互动动作」) this turn takes, by its id; a turn with
+   * one needs no text — the backend plays the action's own line as the user's words. */
+  interactionId?: string,
+): AsyncGenerator<TurnEvent> {
   const res = await api(`/api/conversations/${conversationId}/turns`, {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ text, own_keys: turnOwnKeys(userId), read_aloud_model: readAloudModel(userId) }),
+    body: JSON.stringify({
+      text,
+      own_keys: turnOwnKeys(userId),
+      read_aloud_model: readAloudModel(userId),
+      interaction_id: interactionId,
+    }),
   });
   yield* serverSentEvents<TurnEvent>(res);
 }

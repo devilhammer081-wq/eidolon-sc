@@ -14,7 +14,7 @@ import { type EventShown, unwellOf } from "@/lib/conversationEvents";
  * if none; and, in a turn the user asked for a photo with this hour's used up, when they may ask
  * again (ISO), which is never recorded. */
 export type Entry =
-  | { kind: "user"; key: string; text: string; at: string }
+  | { kind: "user"; key: string; text: string; at: string; interactionId?: string }
   | ({ kind: "event"; key: string; at: string; affinity: AffinityChange | null } & EventShown)
   | {
       kind: "character";
@@ -37,8 +37,10 @@ export type ConversationLog = { entries: Entry[]; turn: Turn | null };
 export type LogAction =
   /** The conversation was opened or started: show its record. */
   | { type: "loaded"; messages: Recorded[] }
-  /** The user typed something outside a call, at `at`; show it before the backend takes it up. */
-  | { type: "submitted"; text: string; at: string }
+  /** The user typed something outside a call, at `at`; show it before the backend takes it up.
+   * An interaction action (GLOSSARY.md「互动动作」) taken instead says which, by its id — it has
+   * no words of its own; the backend's `user` event takes it up with the action's line. */
+  | { type: "submitted"; text: string; at: string; interactionId?: string }
   /** The backend took up the user's words, heard at `at`; words typed keep the time they were sent. */
   | (Extract<TurnEvent, { type: "user" }> & { at: string })
   | Exclude<TurnEvent, { type: "user" | "looking-up" }>
@@ -57,7 +59,7 @@ export function conversationLog(log: ConversationLog, action: LogAction): Conver
     case "loaded":
       return { entries: action.messages.map(toEntry), turn: null };
     case "submitted":
-      return opened(withoutTurn(log), action.text, action.at, false);
+      return opened(withoutTurn(log), action.text, action.at, false, action.interactionId);
     case "user":
       if (log.turn && !log.turn.confirmed) {
         return { ...log, turn: { ...log.turn, confirmed: true } };
@@ -127,13 +129,19 @@ export function replySoFar(log: ConversationLog): Segment[] {
 /** Opens a turn with the user's words and an empty reply to fill. The turn in progress is
  * always the last two entries, so an entry's position is never shared by two entries
  * shown together and serves as its key until the entry is replaced by the recorded one. */
-function opened(log: ConversationLog, text: string, at: string, confirmed: boolean): ConversationLog {
+function opened(
+  log: ConversationLog,
+  text: string,
+  at: string,
+  confirmed: boolean,
+  interactionId?: string,
+): ConversationLog {
   const position = log.entries.length;
   const turn = { confirmed, userKey: `new-${position}`, replyKey: `new-${position + 1}` };
   return {
     entries: [
       ...log.entries,
-      { kind: "user", key: turn.userKey, text, at },
+      { kind: "user", key: turn.userKey, text, at, ...(interactionId && { interactionId }) },
       { kind: "character", key: turn.replyKey, segments: [], pending: true, at, affinity: null, photo: null },
     ],
     turn,
@@ -203,7 +211,13 @@ function toEntry(message: Recorded): Entry {
     };
   }
   return message.role === "user"
-    ? { kind: "user", key: `m${message.id}`, text: message.text ?? "", at: message.created_at }
+    ? {
+        kind: "user",
+        key: `m${message.id}`,
+        text: message.text ?? "",
+        at: message.created_at,
+        ...(message.interaction_id && { interactionId: message.interaction_id }),
+      }
     : {
         kind: "character",
         key: `m${message.id}`,

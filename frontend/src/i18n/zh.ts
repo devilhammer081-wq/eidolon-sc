@@ -211,6 +211,16 @@ export const zh = {
     callTooltip: "语音通话",
     placeholder: "用中文或日语说点什么",
     send: "发送",
+    /** 互动动作（GLOSSARY.md「互动动作」）：输入栏左侧的「互动」键、它打开的动作目录，和消息流里一条动作的居中胶囊。
+     * 动作的名字和 emoji 从后端目录来（`GET /api/interactions`），这里只有框架文案。 */
+    interactions: {
+      menu: "互动",
+      title: "互动",
+      /** 目录里每一项右侧的推荐关系标签；`tier` 是好感度档位的名字（affinity.tiers）。 */
+      recommendedTier: (tier: string) => `推荐${tier}`,
+      /** 消息流里一条动作的居中胶囊：动作的 emoji 加名字（如「🤚 摸摸头」）。 */
+      capsule: (emoji: string, name: string) => `${emoji} ${name}`,
+    },
     /** 消息区里跨天处的日期条；昨天、更早的写法和列表一样（conversationList）。 */
     today: "今天",
     emptyTitle: (name: string) => `和${name}打个招呼吧`,

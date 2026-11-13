@@ -420,7 +420,7 @@ export function DirectoryProvider({ children }: { children: ReactNode }) {
         onListChanged: refresh,
         onRewarded: rewarded,
         startCall: (conversationId, preferences, handlers) => startCall(conversationId, preferences, handlers, userId),
-        sendTurn: (conversationId, text) => sendTurn(conversationId, text, userId),
+        sendTurn: (conversationId, text, interactionId) => sendTurn(conversationId, text, userId, interactionId),
         getPhoto,
         getAffinity,
         preferences: { load: loadCallPreferences, save: saveCallPreferences },

@@ -311,7 +311,7 @@ export type Ports = {
     preferences: CallPreferences,
     handlers: CallHandlers,
   ) => Promise<Call>;
-  sendTurn: (conversationId: string, text: string) => AsyncIterable<TurnEvent>;
+  sendTurn: (conversationId: string, text: string, interactionId?: string) => AsyncIterable<TurnEvent>;
   /** How a photo she sent is coming along. */
   getPhoto: (id: string) => Promise<PhotoStatus>;
   /** Her affinity with the user now; null while affinity is off. */
@@ -493,6 +493,52 @@ export class LiveConversation {
     if (failure) {
       // A failed turn is not recorded: take it back off the log and return the text to the input.
       this.apply({ type: "interrupted" }, { draft: text, failure });
+    }
+    this.update({ busy: false, lookingUp: null });
+  }
+
+  /**
+   * Take an interaction action (GLOSSARY.md「互动动作」) as a turn of its own: no words are
+   * sent, the backend plays the action's own line as the user's, so the input box is left
+   * as it is. She answers as the streaming protocol has her answer a typed turn.
+   */
+  async sendInteraction(interactionId: string): Promise<void> {
+    const conversationId = this.openConversationId();
+    if (!conversationId || this.state.busy || this.state.call.phase === "dialing") return;
+    if (isCooling(this.state) || isEnded(this.state)) return;
+    this.update({ failure: null });
+    this.apply({ type: "submitted", text: "", at: this.isoNow(), interactionId }, { busy: true });
+
+    let failure: Failure | null = null;
+    let done = false;
+    try {
+      for await (const event of this.ports.sendTurn(conversationId, "", interactionId)) {
+        if (event.type === "looking-up") {
+          this.update({ lookingUp: event.what });
+          continue;
+        }
+        this.applyTurnEvent(event);
+        if (event.type === "done") done = true;
+        // A turn that failed leaves no record and does not count towards the limit.
+        if (event.type === "error")
+          failure = { message: event.message, signedOut: false, countsTowardLimit: false };
+      }
+      // Cut off: whether the backend still recorded (and counted) it cannot be told here.
+      if (!done && !failure) failure = { message: "回复中断了，请再试一次", signedOut: false };
+    } catch (e) {
+      if (e instanceof ApiError && e.cooldownUntil !== null) {
+        // Refused for a cooldown begun elsewhere: shown as one. The input box keeps its text.
+        this.apply({ type: "interrupted" }, { busy: false });
+        this.cooled(e.cooldownUntil);
+        return;
+      }
+      failure = toFailure(e);
+      // Refused by the backend (over the limit, own key failed, ...): not counted.
+      if (e instanceof ApiError) failure.countsTowardLimit = false;
+    }
+    if (failure) {
+      // A failed turn is not recorded: take it back off the log. No text to return.
+      this.apply({ type: "interrupted" }, { failure });
     }
     this.update({ busy: false, lookingUp: null });
   }
