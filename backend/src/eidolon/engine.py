@@ -144,6 +144,7 @@ from eidolon.her_now import (
     Occasion,
 )
 from eidolon.her_weather import KnownWeather
+from eidolon.interactions import Interaction, affinity_step, taken_before, turn_lines
 from eidolon.judge import JudgeError
 from eidolon.letter_prompt import Earlier, letters_section, read_earlier
 from eidolon.llm import ChatLLM, ChatMessage, Reasoning, Tool, ToolCall, TurnLLMs
@@ -727,14 +728,16 @@ class ConversationEngine:
         in_call: InCall | None = None,
         voiced_by: FishAudioModel | None = None,
         own_image: ImageSettings | None = None,
+        interaction: Interaction | None = None,
     ) -> AsyncGenerator[TurnEvent, None]:
         """Take one turn on `llms`, `in_call` if it is taken in one, its reply voiced with
         `voiced_by` (for a text turn's, the model it would be read aloud with, GLOSSARY.md
         「朗读」; None if none), which has her write delivery cues as it reads them, her photo
         on the user's `own_image` generation if it brings it. `device_timezone` is the time
-        zone the user's device reports, used unless the producer profile sets one. Once
-        `stop` is set, the turn goes no further and is recorded with the segments complete by
-        then."""
+        zone the user's device reports, used unless the producer profile sets one. Should
+        the turn take an interaction action (GLOSSARY.md「互动动作」), `interaction` is it.
+        Once `stop` is set, the turn goes no further and is recorded with the segments
+        complete by then."""
         text = text.strip()
         yield UserSaid(text)
         if not text or len(text) > MAX_INPUT_LENGTH:
@@ -747,7 +750,8 @@ class ConversationEngine:
         try:
             with taking:
                 async for event in self._reply(
-                    conversation, text, llms, device_timezone, stop, in_call, voiced_by, photo
+                    conversation, text, llms, device_timezone, stop, in_call, voiced_by,
+                    photo, interaction,
                 ):
                     yield event
         except OwnKeyFailed as e:  # theirs to fix, so they are told what went wrong
@@ -771,6 +775,7 @@ class ConversationEngine:
         in_call: InCall | None,
         voiced_by: FishAudioModel | None,
         photo: _Photo,
+        interaction: Interaction | None,
     ) -> AsyncIterator[TurnEvent]:
         # The database is read and written on threads all through the turn: waiting on it
         # on the event loop would keep everyone's calls on it from going on meanwhile.
@@ -881,6 +886,10 @@ class ConversationEngine:
             chat_history(messages, turns),
             narrations(record, self._gift_catalog, timezone, her_days),
             [
+                *(
+                    turn_lines(interaction, affinity and affinity.tier, messages)
+                    if interaction is not None else []
+                ),
                 self._now_section(
                     known, occasion, now, timezone, profile, last_contact, affinity_lines,
                     known_weather,
@@ -997,6 +1006,8 @@ class ConversationEngine:
         keeping = asyncio.ensure_future(self._keep(
             conversation, text, said_at, parser.complete, judged, affinity, typed,
             ends_conversation, photo, her_day,
+            (interaction, taken_before(interaction, messages)) if interaction is not None
+            else None,
         ))
         try:
             reply, affinity, rewarded, unwell = await asyncio.shield(keeping)
@@ -1219,9 +1230,10 @@ class ConversationEngine:
         ends_conversation: bool,
         photo: _Photo,
         her_day: HerDay,
+        interaction: tuple[Interaction, int] | None,
     ) -> tuple[Message, Status | None, Rewarded | None, ConversationEvent | None]:
         """Record the turn (`_record`), and tell what comes of it: should it begin a
-        cooldown, those `on_cooled` has; the photos, whether her reply is recorded with the
+        cooldown, those `on_cooled` have; the photos, whether her reply is recorded with the
         photo, if any; and the activity log, what the turn was rewarded for. The reply, her
         affinity after it, what it was rewarded with, and her being unwell, if recorded
         with it."""
@@ -1230,7 +1242,7 @@ class ConversationEngine:
                 self._record,
                 conversation, text, said_at, reply, judged, affinity, typed, ends_conversation,
                 NewPhoto(photo.id, photo.tag) if photo.id else None,
-                self._happenings and self._happenings.open, her_day,
+                self._happenings and self._happenings.open, her_day, interaction,
             )
         except Exception:
             if photo.id is not None and self._photos is not None:
@@ -1262,12 +1274,15 @@ class ConversationEngine:
         photo: NewPhoto | None,
         happenings_open: Open | None,
         her_day: HerDay,
+        interaction: tuple[Interaction, int] | None,
     ) -> tuple[Message, Status | None, Rewarded | None, ConversationEvent | None]:
         """Record the turn, as said at `said_at`, through `db`, in one transaction with all
         it changes: her being unwell before it, should `her_day` have her in her period and
         it be the user's first turn with her in it (`add_unwell`), her affinity as `judged`
-        says, if judged, with what a typed turn came to, her ending the conversation after
-        it if she does, the photo she sends with it if any, and what it counts towards
+        says, if judged — with the interaction action's own step, should the turn take one
+        (`interactions.affinity_step`), in place of what the judge model made of its line —
+        with what a typed turn came to, her ending the conversation after it if she does,
+        the photo she sends with it if any, and what it counts towards
         (`Happenings.turn_recorded`), with what is `happenings_open` as it was handed in,
         all of it or none.
         The reply, her affinity after it (`affinity`, as the turn began, if not judged),
@@ -1279,10 +1294,13 @@ class ConversationEngine:
         change = None
         if judged is not None and self._affinities is not None:
             change, affinity = self._affinities.change(
-                db, conversation.user_id, conversation.character_id, judged
+                db, conversation.user_id, conversation.character_id, judged,
+                affinity_step(interaction[0], affinity and affinity.tier, judged, interaction[1])
+                if interaction is not None else None,
             )
         message = add_turn(
-            db, conversation.id, text, reply, change, said_at, typed, ends_conversation, photo
+            db, conversation.id, text, reply, change, said_at, typed, ends_conversation,
+            photo, interaction and interaction[0].id,
         )
         rewarded = (
             self._happenings.turn_recorded(

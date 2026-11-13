@@ -113,7 +113,8 @@ CREATE TABLE IF NOT EXISTS messages (
     created_at TEXT NOT NULL,
     affinity TEXT,
     hurt REAL,
-    out_of_line INTEGER
+    out_of_line INTEGER,
+    interaction_id TEXT
 );
 CREATE INDEX IF NOT EXISTS messages_by_conversation ON messages(conversation_id, id);
 CREATE TABLE IF NOT EXISTS conversation_events (
@@ -304,6 +305,9 @@ class Message:
     segments: list[Segment] = field(default_factory=list)
     affinity: Change | None = None
     photo: Photo | None = None
+    interaction_id: str | None = None
+    """The interaction action (GLOSSARY.md「互动动作」) the user's message took, if it took
+    one; on the user's message of the turn only."""
 
     @property
     def photo_sent(self) -> bool:
@@ -871,7 +875,8 @@ class Store:
 
 _USER_COLUMNS = "id, name, created_at, consented_at, banned_at, ban_note"
 _MESSAGE_COLUMNS = (
-    "m.id AS id, role, text, ja, zh, segments, m.created_at AS created_at, affinity"
+    "m.id AS id, role, text, ja, zh, segments, m.created_at AS created_at, affinity,"
+    " interaction_id"
 )
 _MESSAGE_WITH_PHOTO = (
     f"{_MESSAGE_COLUMNS}, p.id AS photo_id, p.status AS photo_status,"
@@ -899,6 +904,7 @@ def _open(db: sqlite3.Connection) -> None:
     _add_missing_columns(db, "messages", ("affinity",), "TEXT")
     _add_missing_columns(db, "messages", ("hurt",), "REAL")
     _add_missing_columns(db, "messages", ("out_of_line",), "INTEGER")
+    _add_missing_columns(db, "messages", ("interaction_id",), "TEXT")
     _add_missing_columns(db, "conversations", ("title",), "TEXT")
     _add_missing_columns(db, "conversation_events", ("gift_id",), "TEXT")
     _add_missing_columns(db, "conversation_events", ("liked",), "INTEGER NOT NULL DEFAULT 0")
@@ -1478,18 +1484,24 @@ def add_turn(
     typed: Typed | None = None,
     ends: bool = False,
     photo: NewPhoto | None = None,
+    interaction_id: str | None = None,
 ) -> Message:
     """Record the user's input, said at `said_at` (as `timestamp` gives it; now by
     default), and the character's reply together, through `db`, in the transaction the
     turn is recorded in with what it changes (`ConversationEngine`), with how the turn
     changed her affinity, if it did, and for a typed turn what it came to (`typed`);
     returns the reply. The photo she sends with it, if any, is recorded being generated.
-    Should she end the conversation after it (`ends`), that is recorded with it, after it
-    (`ended`). It answers her latest reach-out in it (`_answer_reach_out`). Into a
-    conversation she has ended already, nothing is recorded: `ConversationEnded`."""
+    Should the turn take an interaction action (GLOSSARY.md「互动动作」), the user's message
+    is marked with its `interaction_id`. Should she end the conversation after it
+    (`ends`), that is recorded with it, after it (`ended`). It answers her latest
+    reach-out in it (`_answer_reach_out`). Into a conversation she has ended already,
+    nothing is recorded: `ConversationEnded`."""
     if read_ended(db, conversation_id) is not None:
         raise ConversationEnded()
-    _insert_message(db, conversation_id, "user", text=text, created_at=said_at, typed=typed)
+    _insert_message(
+        db, conversation_id, "user", text=text, created_at=said_at, typed=typed,
+        interaction_id=interaction_id,
+    )
     replied = _insert_message(db, conversation_id, "character", segments=reply, affinity=affinity)
     if photo is not None:
         now = _now()
@@ -1890,6 +1902,7 @@ def _insert_message(
     affinity: Change | None = None,
     created_at: str | None = None,
     typed: Typed | None = None,
+    interaction_id: str | None = None,
 ) -> Message:
     created_at = created_at or _now()
     ja = zh = None
@@ -1898,15 +1911,18 @@ def _insert_message(
         zh = "".join(s.zh for s in segments)
     cursor = db.execute(
         "INSERT INTO messages (conversation_id, role, text, ja, zh, segments, created_at,"
-        " affinity, hurt, out_of_line) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        " affinity, hurt, out_of_line, interaction_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         (
             conversation_id, role, text, ja, zh, _stored_segments(segments), created_at,
             _stored_change(affinity),
-            typed and typed.hurt, typed and int(typed.out_of_line),
+            typed and typed.hurt, typed and int(typed.out_of_line), interaction_id,
         ),
     )
     assert cursor.lastrowid is not None
-    return Message(cursor.lastrowid, role, text, ja, zh, created_at, segments or [], affinity)
+    return Message(
+        cursor.lastrowid, role, text, ja, zh, created_at, segments or [], affinity,
+        interaction_id=interaction_id,
+    )
 
 
 def _insert_event(
@@ -2027,6 +2043,7 @@ def _message(row: sqlite3.Row) -> Message:
         row["id"], row["role"], row["text"], row["ja"], row["zh"], row["created_at"],
         [Segment(**s) for s in json.loads(row["segments"] or "[]")],
         _change(row["affinity"]),
+        interaction_id=row["interaction_id"],
     )
 
 

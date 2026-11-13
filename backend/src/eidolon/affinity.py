@@ -619,20 +619,34 @@ class Affinities:
         return await self._db.read(self._cools, user_id, character_id, judged)
 
     def change(
-        self, db: sqlite3.Connection, user_id: str, character_id: str, judged: Judged
+        self,
+        db: sqlite3.Connection,
+        user_id: str,
+        character_id: str,
+        judged: Judged,
+        step_override: float | None = None,
     ) -> tuple[Change | None, Status]:
         """Change the user's affinity with the character as the turn `judged` says, through
         `db`, in the transaction the turn is recorded in: how it changed (None for not at
         all), a cooldown begun with it among that, and the affinity left, with when the
         cooldown it is in ends. The day's gains are counted on the day it is (`day_of`), the
-        turns' and being considerate's apart."""
+        turns' and being considerate's apart. `step_override`, where the turn's own step is
+        known better than the judge model's (an interaction action, GLOSSARY.md「互动动作
+        」), is taken instead of what it judged; everything else about the turn is judged
+        as ever."""
         now = self._clock()
         before, gained, considerate, gained_on = _row(db, user_id, character_id, now)
         today = day_of(now).isoformat()
         gained_today = gained if gained_on == today else 0.0
         considerate_today = considerate if gained_on == today else 0.0
-        step = _limited(judged.step, GAINS_PER_DAY - gained_today)
-        more = _limited(judged.considerate_step, CONSIDERATE_GAINS_PER_DAY - considerate_today)
+        step = _limited(
+            judged.step + judged.considerate_step
+            if step_override is None else step_override,
+            GAINS_PER_DAY - gained_today,
+        )
+        more = 0.0 if step_override is not None else _limited(
+            judged.considerate_step, CONSIDERATE_GAINS_PER_DAY - considerate_today
+        )
         after = before.stepped(step + more)
         value = after.value
         # What it rose by counts towards the turns' gains first, then being considerate's.

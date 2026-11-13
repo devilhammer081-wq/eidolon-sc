@@ -19,3 +19,9 @@ Blocked by: 01
 - Playwright 冒烟：打开某角色对话，菜单弹出、发送摸摸头、居中气泡与角色回复出现、刷新后仍在。
 
 ## Comments
+
+### 票 01 交接
+
+- 动作目录接口已就位：`GET /api/interactions` → `[{id, name, emoji, recommended_tier}, ...]`，顺序即菜单展示顺序；tier 取值同 affinity（cold/distant/trust/close/intimate）。
+- 发送：`POST /api/conversations/{id}/turns` 带 `interaction_id`，`text` 可不传（后端会用动作的叙述行作为用户消息文本）；流式协议与普通 turn 完全一致，首个 `user` 事件的 `text` 是叙述行（如「（轻轻摸了摸她的头。）」）。
+- 历史回放：`GET /api/conversations/{id}/messages` 里 interaction 消息（用户侧）带 `interaction_id` 字段，其余消息该字段为 `null`；前端可据 `interaction_id` 映射目录里的 emoji/名字渲染居中气泡。动作目录前端最好自行缓存（id→name/emoji 映射）。
