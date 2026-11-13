@@ -27,6 +27,7 @@ from eidolon.data_access import Database
 from eidolon.drink_catalog import DRINKS_FILE
 from eidolon.gift_catalog import GIFTS_FILE
 from eidolon.letter_music import LETTER_MUSIC_FILE
+from eidolon.outing_catalog import OUTINGS_FILE
 from eidolon.identity import Identity
 from eidolon.job_list import JOBS_FILE
 from eidolon.place_pool import PLACES_FILE
@@ -137,6 +138,7 @@ BACKGROUND = b"\xff\xd8\xff fake background"
 SIGNATURE = b"RIFF\x00\x00\x00\x00WEBP fake signature"
 REPO_GIFTS = Path(__file__).parents[2] / "characters" / GIFTS_FILE
 REPO_LETTER_MUSIC = Path(__file__).parents[2] / "characters" / LETTER_MUSIC_FILE
+REPO_OUTINGS = Path(__file__).parents[2] / "characters" / OUTINGS_FILE
 REPO_JOBS = Path(__file__).parents[2] / "characters" / JOBS_FILE
 REPO_DRINKS = Path(__file__).parents[2] / "characters" / DRINKS_FILE
 REPO_BAR_VISITS = Path(__file__).parents[2] / "characters" / BAR_VISITS_FILE
@@ -153,9 +155,9 @@ wanting one without alcohol."""
 class CharacterConfig:
     """Writes a character configuration directory, the way an administrator would, with the
     repository's gift catalog, job list, drink catalog, bar reasons and topics, bar lines,
-    place pool and letters' music list beside it unless a test writes its own (`gifts.toml`,
-    `jobs.toml`, `drinks.toml`, `bar_visits.toml`, `bar_lines.toml`, `places.toml`,
-    `letter_music.toml`). The reasons and
+    place pool, letters' music list and outing catalog beside it unless a test writes its
+    own (`gifts.toml`, `jobs.toml`, `drinks.toml`, `bar_visits.toml`, `bar_lines.toml`,
+    `places.toml`, `letter_music.toml`, `outings.toml`). The reasons and
     topics are written for every character, none left out (`not_for`), and the places for
     no one (`idols`), as the repository's name characters a test may not have."""
 
@@ -275,6 +277,8 @@ class CharacterConfig:
             places.write_text(anyones, encoding="utf-8")
         if not (music := self.directory / LETTER_MUSIC_FILE).exists():
             music.write_bytes(REPO_LETTER_MUSIC.read_bytes())
+        if not (outings := self.directory / OUTINGS_FILE).exists():
+            outings.write_bytes(REPO_OUTINGS.read_bytes())
         return self
 
     def write(self, relative: str, content: str | bytes) -> None:

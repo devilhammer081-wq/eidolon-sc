@@ -18,3 +18,10 @@ Blocked by: 01
 - ruff + pyright 过。
 
 ## Comments
+
+### 票 01 交接
+
+- 目录已在 assembly 启动加载（写错起不来），挂在 `Backend.outing_catalog`，conftest 也拷好了——不用再动 assembly。`OutingLocation.place_categories` 是 `places.toml` 的类别：偶遇加权＝好感档位 + 她 `place_likes` 与地点 `place_categories` 的交集（有交集加成，无交集只按好感）。
+- 存储实例已在 assembly 构造：`Backend.outings`（`Outings`，`backend/src/eidolon/outings.py`）。solo 流程照它的形状走：`add(user, "solo", location, (), now)` → 见闻逐段 `message(kind="opening")`（1–2 段，每段一行，或并成一行）→ `end(user, id, now)`。偶遇后开的对话走现有 Conversation，不用落 outing 消息表。
+- `GET /api/outings` 历史直接用 `listed(user)`（最新在前）；「偶遇了谁」票 01 没存列，可在偶遇成局时把她的 id 写进一条消息（如 ending 行 `speaker=<她>`）或给 outings 加列，你定。
+- 越权/已结束的写操作抛 `OutingGone`（「这次外出已经结束了」），API 层接成 404/409。

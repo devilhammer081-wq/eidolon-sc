@@ -22,3 +22,11 @@ Blocked by: 01
 - ruff + pyright 过。
 
 ## Comments
+
+### 票 01 交接
+
+- 存储实例已在 assembly 构造：`Backend.outings`（`backend/src/eidolon/outings.py`）。同行流程照它的形状走：`add(user, "outing", location, participants(1–3), now)`（建为 opening）→ 开场逐条 `message(kind="opening", speaker=<角色>)` → `begin`（→ongoing）→ 回合 `message(kind="say")`、事件 `message(kind="event", event=<目录事件 id>)` + 角色反应 say 行 → `end(user, id, now)`。
+- 结算读法：`outings.outing()`（participants/location）+ `outings.messages()`；事件行的 `event` 列是 `characters/outings.toml` 里的事件 id，回 `Backend.outing_catalog[location_id].event(id)` 拿事件的 affinity 提示，地点级提示在 `OutingLocation.affinity`。这两处就是票 01 留的结算数据接口。
+- 消息表已按群聊复用设计（`speaker` 空＝制作人、语义通用）：功能二群聊可以直接用这张表/照这个形态建，别另起一套时以它为准。
+- 写操作越权/已结束抛 `OutingGone`（「这次外出已经结束了」），API 层接成 404/409；`begin` 只能从 opening 进、`end` 只能一次，重复调同样抛。
+- LiveConfig 的 `OutingSettings`（encounter_chance、responders_max 等）本票没建，按你的任务 2/5 自己加。

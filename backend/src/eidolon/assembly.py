@@ -51,6 +51,8 @@ from eidolon.happenings import Happenings
 from eidolon.her_now import HerNow
 from eidolon.hot_words import hot_words
 from eidolon.job_list import jobs_path, load_job_list
+from eidolon.outing_catalog import OutingLocation, load_outing_catalog, outings_path
+from eidolon.outings import Outings
 from eidolon.place_pool import check_job_places, check_place_likes, load_place_pool, places_path
 from eidolon.housekeeping import keep_tidy
 from eidolon.loop_lag import watch_the_loop
@@ -123,6 +125,10 @@ class Backend:
     characters: dict[str, Character]
     gift_catalog: dict[str, Gift]
     """The gift catalog, by identifier."""
+    outing_catalog: dict[str, OutingLocation]
+    """The outing catalog (GLOSSARY.md「外出」), by identifier."""
+    outings: Outings
+    """The users' outings, and the lines of them (GLOSSARY.md「外出」)."""
     bar: Bar
     """The bar, and every user's visit under way (GLOSSARY.md「酒吧」「光顾」)."""
     memories: Memories
@@ -263,11 +269,12 @@ def build(
     """The backend `settings` describe, with any of the outside services passed in
     used instead of made. Raises RuntimeError, having opened nothing, if the character
     configuration (her liked gifts, her bar tastes and all), the world setting, the gift
-    catalog, the job list, the place pool, the drink catalog, the bar's reasons and topics or its fixed lines,
+    catalog, the outing catalog, the job list, the place pool, the drink catalog, the bar's reasons and topics or its fixed lines,
     or the letters' music list is broken, or a character is none of its idols and none of its staff."""
     characters = load_characters(settings.characters_path)
     gift_catalog = load_gift_catalog(gifts_path(settings.characters_path))
     check_liked_gifts(characters, gift_catalog)
+    outing_catalog = load_outing_catalog(outings_path(settings.characters_path))
     job_list = load_job_list(jobs_path(settings.characters_path))
     places = load_place_pool(places_path(settings.characters_path), characters)
     check_job_places(job_list)
@@ -294,6 +301,7 @@ def build(
     closers: list[Closer] = [database.close]
 
     store = Store(database)
+    outings = Outings(database)
     if identity_providers is None:
         identity_providers = open_identity_providers(settings.github, settings.google)
         closers.extend(p.aclose for p in identity_providers.values())
@@ -511,6 +519,8 @@ def build(
         store=store,
         characters=characters,
         gift_catalog=gift_catalog,
+        outing_catalog=outing_catalog,
+        outings=outings,
         bar=bar,
         memories=memories,
         titles=titles,
