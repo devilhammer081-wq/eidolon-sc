@@ -45,3 +45,9 @@ Blocked by: 01
 - 互动只在文字输入栏有入口，通话里的打字 dock 不加：通话的回合走通话管线，动作没有语音形态。
 
 验收：typecheck 通过；`sh scripts/affected-tests.sh 781aee1` 通过（本机没 uv，用 `backend/.venv` 加临时 uv shim 跑通）；Playwright 冒烟在本地构建版上过（菜单弹出、推荐标签、发送摸摸头、居中胶囊 + 她的日语/中文回复、刷新后仍在），验完一次性脚本和截图已删，服务已停。
+
+### 审查修复（票 02）
+
+- `liveConversation.ts`：`sendInteraction` 原样复制了 `submit` 的整个回合运行块（约 40 行）——已提取私有 `runTurn`，两个入口只留各自的门与提交，草稿回填按「有没有自己的文字」区分。
+- `GLOSSARY.md` 补「互动动作」词条（代码注释里的引用此前指向不存在的词条）。
+- 判断题（未改）：动作名/emoji 以后端目录为单一事实来源、`zh.ts` 只放框架文案（对 spec「全部文案进 zh.ts」的偏离，实现说明里已声明）。

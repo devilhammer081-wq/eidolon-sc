@@ -34,8 +34,8 @@ TIER_AT: dict[Tier, int] = {tier: at for at, (tier, _) in enumerate(TIERS)}
 
 WEARINESS_TURNS = 8
 """How many of the conversation's latest user messages the same action is counted over,
-the turn being taken among them: long enough to wear it out for a while, short enough
-that coming back another day starts it fresh."""
+the turn being taken among them. It is a window over turns, not the day: a day's worth
+of other talk soon carries the repeats out of it."""
 
 WEARINESS_DECAY = 0.5
 """How much of its `affinity_delta` an action raises by for each time it has been taken
@@ -90,6 +90,10 @@ CATALOG: tuple[Interaction, ...] = (
     Interaction(
         "snack", "递零食", "🍪", "（递给她一份小零食。）", "trust", 0.4,
         "制作人递给你一份小零食。",
+    ),
+    Interaction(
+        "milk_tea", "递奶茶", "🧋", "（递给她一杯奶茶。）", "trust", 0.4,
+        "制作人递给你一杯温热的奶茶。",
     ),
     Interaction(
         "tidy_hair", "整理头发", "✨", "（伸手替她理了理头发。）", "intimate", 0.5,
@@ -168,14 +172,11 @@ def affinity_step(
     return interaction.affinity_delta * decay(count)
 
 
-def turn_lines(
-    interaction: Interaction, tier: Tier | None, messages: Sequence[Message]
-) -> list[str]:
+def turn_lines(interaction: Interaction, tier: Tier | None, count: int) -> list[str]:
     """What the chat model is told of the action the user takes, as the turn begins in
-    `tier` (None with affinity off): its scene, how she takes it by her tier against its
-    recommended one, and, worn out, that she has had it too often today. How many times
-    it was taken before is counted over `messages` (`taken_before`)."""
-    count = taken_before(interaction, messages)
+    `tier` (None with affinity off), the same action taken `count` times already
+    (`taken_before`): its scene, how she takes it by her tier against its recommended
+    one, and, worn out, that she has had it too often."""
     return [
         interaction.scene,
         *reaction_lines(interaction, tier),

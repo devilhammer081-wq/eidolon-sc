@@ -40,3 +40,11 @@ Spec: `.scratch/interactions/spec.md`
 - 腻烦提示从同一动作重复第 3 次（已出现 2 次）起注入；衰减每次 ×0.5，窗口为最近 8 条用户消息。
 - 目录未进 `live_config.py`：spec 说首版可只做数据层默认值，admin 可调留待后续票。
 - 测试跑法：本机没装 `uv`，用 `backend/.venv` 的 pytest/ruff/pyright 直跑（pyright 需 `--pythonpath .venv/Scripts/python.exe`）；`affected-tests.sh` 用了临时 uv shim 跑通。
+
+### 审查修复（票 01）
+
+- `affinity.py` `change()` 普通分支把 `considerate_step` 同时算进 `step` 和 `more`（双计且挤占每日上限）——回归，已修回：无 `step_override` 时走原逻辑，有则只用覆写值、`more` 为 0。
+- 目录补上「递奶茶」（`milk_tea`），spec 的「递零食/奶茶」至此全收。
+- `WEARINESS_TURNS` 文档串「隔天就重新算」与实现不符（窗口按最近回合数，不按天）——文档串改为如实描述。
+- engine 里 `taken_before` 从算两次改为算一次传下去；`turn_lines` 因此改为收 `count`。
+- 判断题（未改，仅记录）：目录未进 `live_config.py`（v1 数据层默认值，spec 括注允许）；`reaches` 的 at/above 无行为差异；`interaction: tuple[Interaction, int]` 数据束；测试里有几处重复断言与不分支的参数化；judge 覆写的实际门槛是 `judged.step + judged.considerate_step < 0` 时不覆写（考虑值均为非负时与票面 `judged.step >= 0` 等价）。

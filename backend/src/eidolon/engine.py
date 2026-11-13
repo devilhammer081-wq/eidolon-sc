@@ -802,6 +802,11 @@ class ConversationEngine:
         # comes before the turn, and is told of with its words from the next turn on.
         said_at = timestamp()
         messages = [entry for entry in record if isinstance(entry, Message)]
+        # The action the turn takes, worn out as it is, told her and judged by its own step.
+        worn = (
+            (interaction, taken_before(interaction, messages))
+            if interaction is not None else None
+        )
         turns = self._history_turns()
         # What all but the chat model read: her reach-outs the user answers her latest words.
         history = [*latest_turns(messages, turns), *_answering(record)]
@@ -887,8 +892,8 @@ class ConversationEngine:
             narrations(record, self._gift_catalog, timezone, her_days),
             [
                 *(
-                    turn_lines(interaction, affinity and affinity.tier, messages)
-                    if interaction is not None else []
+                    turn_lines(worn[0], affinity and affinity.tier, worn[1])
+                    if worn is not None else []
                 ),
                 self._now_section(
                     known, occasion, now, timezone, profile, last_contact, affinity_lines,
@@ -1006,8 +1011,7 @@ class ConversationEngine:
         keeping = asyncio.ensure_future(self._keep(
             conversation, text, said_at, parser.complete, judged, affinity, typed,
             ends_conversation, photo, her_day,
-            (interaction, taken_before(interaction, messages)) if interaction is not None
-            else None,
+            worn,
         ))
         try:
             reply, affinity, rewarded, unwell = await asyncio.shield(keeping)

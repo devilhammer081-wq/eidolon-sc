@@ -639,14 +639,14 @@ class Affinities:
         today = day_of(now).isoformat()
         gained_today = gained if gained_on == today else 0.0
         considerate_today = considerate if gained_on == today else 0.0
-        step = _limited(
-            judged.step + judged.considerate_step
-            if step_override is None else step_override,
-            GAINS_PER_DAY - gained_today,
-        )
-        more = 0.0 if step_override is not None else _limited(
-            judged.considerate_step, CONSIDERATE_GAINS_PER_DAY - considerate_today
-        )
+        if step_override is None:
+            step = _limited(judged.step, GAINS_PER_DAY - gained_today)
+            more = _limited(
+                judged.considerate_step, CONSIDERATE_GAINS_PER_DAY - considerate_today
+            )
+        else:
+            step = _limited(step_override, GAINS_PER_DAY - gained_today)
+            more = 0.0
         after = before.stepped(step + more)
         value = after.value
         # What it rose by counts towards the turns' gains first, then being considerate's.

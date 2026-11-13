@@ -54,10 +54,11 @@ def user_message(interaction_id: str | None = None) -> Message:
 def test_the_catalog_names_every_action_once_with_its_tier():
     assert [i.id for i in CATALOG] == [
         "pat_head", "hug", "kiss", "hold_hands", "high_five", "poke_cheek", "snack",
-        "tidy_hair", "tidy_collar",
+        "milk_tea", "tidy_hair", "tidy_collar",
     ]
     assert [i.name for i in CATALOG] == [
-        "摸摸头", "拥抱", "亲吻", "牵手", "击掌", "戳脸颊", "递零食", "整理头发", "整理衣领",
+        "摸摸头", "拥抱", "亲吻", "牵手", "击掌", "戳脸颊", "递零食", "递奶茶", "整理头发",
+        "整理衣领",
     ]
     assert len(BY_ID) == len(CATALOG)
     assert all(i.acted.startswith("（") for i in CATALOG)
@@ -74,8 +75,8 @@ def test_where_a_tier_stands_against_the_recommended_one():
 
 def test_the_reaction_told_her_by_her_tier():
     pat = BY_ID["pat_head"]
-    below = turn_lines(pat, "trust", [])
-    at = turn_lines(pat, "close", [])
+    below = turn_lines(pat, "trust", 0)
+    at = turn_lines(pat, "close", 0)
     assert pat.scene in below and pat.scene in at
     assert any("还没有亲近到" in line for line in below)
     assert any("反应良好" in line for line in at)
@@ -86,7 +87,7 @@ def test_weariness_wears_the_action_out_by_half_each_time():
     assert [decay(n) for n in range(4)] == pytest.approx([1.0, 0.5, 0.25, 0.125])
     assert weariness_lines(0) == weariness_lines(1) == []
     assert len(weariness_lines(2)) == 1
-    lines = turn_lines(BY_ID["snack"], "trust", [user_message("snack")] * 2)
+    lines = turn_lines(BY_ID["snack"], "trust", 2)
     assert any("好几次" in line for line in lines)
 
 
