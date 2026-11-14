@@ -232,10 +232,12 @@ class MomentsInput(BaseModel):
 
 
 class OutingsInput(BaseModel):
-    """How likely the producer out on his own is to meet a character, a number from 0 to
-    1; checked by the live configuration."""
+    """How the producer's outings go: how likely one on his own is to meet a character, a
+    number from 0 to 1, and how many of those out with him reply to one of his turns at
+    the most, 1 to 3; each unchanged if not given, checked by the live configuration."""
 
-    encounter_chance: Any
+    encounter_chance: Any = None
+    responders_max: Any = None
 
 
 class ScheduleInput(BaseModel):
@@ -335,7 +337,10 @@ def _change(item: str, body: BaseModel) -> dict[str, Any]:
     and region, a proxy's password and the moments' map and how many comments a day they
     reply to only if given."""
     change = body.model_dump()
-    for field in ("account_id", "workspace_id", "region", "map", "replies_per_day"):
+    for field in (
+        "account_id", "workspace_id", "region", "map", "replies_per_day", "encounter_chance",
+        "responders_max",
+    ):
         if change.get(field, "") is None:
             del change[field]
     if change.get("password", "") is None:

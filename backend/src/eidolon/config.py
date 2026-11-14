@@ -143,13 +143,20 @@ DEFAULT_ENCOUNTER_CHANCE = 0.3
 """How likely the producer out on his own is to meet a character (GLOSSARY.md「偶遇」), unless
 the admin console says otherwise."""
 
+DEFAULT_RESPONDERS_MAX = 2
+"""How many of the characters out with the producer (GLOSSARY.md「外出」) reply to one of his
+turns at the most, unless the admin console says otherwise; one at the least, and fewer
+when fewer are along."""
+
 
 @dataclass(frozen=True)
 class OutingSettings:
-    """How likely the producer out on his own (GLOSSARY.md「独自外出」) is to meet a
-    character (GLOSSARY.md「偶遇」); the admin console may override it."""
+    """How the producer's outings go (GLOSSARY.md「外出」): how likely one on his own is to
+    meet a character (GLOSSARY.md「偶遇」), and how many of those out with him reply to one
+    of his turns at the most; the admin console may override them."""
 
     encounter_chance: float = DEFAULT_ENCOUNTER_CHANCE
+    responders_max: int = DEFAULT_RESPONDERS_MAX
 
 
 @dataclass(frozen=True)

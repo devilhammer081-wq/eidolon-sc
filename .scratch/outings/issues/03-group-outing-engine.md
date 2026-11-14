@@ -1,6 +1,6 @@
 # 票 03：同行外出多角色回合引擎与结算
 
-Status: ready-for-agent
+Status: done
 
 Spec: `.scratch/outings/spec.md`
 
@@ -18,8 +18,8 @@ Blocked by: 01
 
 ## 验收
 
-- pytest：权重选人（好感/关系/随机底噪、@ 独占）、开场/回合/事件/结束的 HTTP 流（mock LLM，仿 test_interactions）、结算与记忆落库、状态流转。
-- ruff + pyright 过。
+- [x] pytest：权重选人（好感/关系/随机底噪、@ 独占）、开场/回合/事件/结束的 HTTP 流（mock LLM，仿 test_interactions）、结算与记忆落库、状态流转。
+- [x] ruff + pyright 过。
 
 ## Comments
 
@@ -37,3 +37,21 @@ Blocked by: 01
 - `GET /api/outings` 和它的 `_shown`（outings_api.py）对 solo/outing 两种 kind 通用，你建的同行 outing 会自动进历史列表；返回里要给同行加的字段（比如参与角色详情）就在 `_shown` 里加。
 - 抽签接缝别硬复用：solo_outings 里「按权重抽一位」是偶遇专用（好感档位 + place_likes），和你要写的 `group_turns.pick_speakers`（好感 + relations 关系图 + 底噪）不是一个东西；真要共享等形状趋同再说。
 - 同行的开场不是搭话：照票 01 交接的 `message(kind="opening", speaker=…)` 落消息表，别学偶遇的 `Store.add_reach_out`（那是偶遇把新对话开起来的做法，见 `outing_prompt.encounter_prompt`）。
+
+### 实现说明（票 03）
+
+由两位实现者接力完成：前一位被使用限额打断，留下 group_turns.py / group_outings.py / test_group_outings.py 的主体；后一位（主会话）修复并收尾。最终状态：
+
+- `group_turns.py`（多角色引擎，群聊复用接缝）：`Candidate`（角色 + 好感档位 + relations 快照）；`pick_speakers`（逐个不放回抽取，权重＝档位起点 + 全员底噪 AFFINITY_BASE=10 + 每个已发言且她认识的角色 RELATION_STEP=20）；`speaker_weight`；`mentioned_in`（@全名或 short_name，谁被 @ 谁独占）；`parse_labelled`（多角色整段输出的「名字：台词」解析）；`speaker_prompt`（单说话人 prompt：她的 sheet + 世界设定 + 在场者与关系 + 已发言 labelled 行 + 好感 tier 段）。
+- `group_outings.py`：`start`（1–3 人 + 地点 → LLM 写开场场景与到场台词，labelled 落库 kind=opening）、`turn`（SSE 流：user → speaker → delta… → done；@ 独占，否则按 responders_max 抽 1–N 位）、`happen`（触发目录事件，落 kind=event 行 + 角色反应）、`end`（LLM 结算 JSON（各角色 level + 结束语）→ 事务内逐角色 `Affinities.change` + `Memories.remember`（共享记忆）→ kind=ending 行 → 状态 ended）。好感度关闭时不问模型、结算列表为空，但记忆照留。
+- `outings_api.py`：四个路由；turns 走 SSE。`/events`、`/end` 也先过 `_standing`（别人的 404、已结束 409）——修复：中断稿漏了这两处的归属检查。
+- LiveConfig：`OutingSettings` 增 `responders_max`（1–3，默认 2）；`admin_config_api.py` 的 `OutingsInput` 两字段均可选、`_change` 剔除未传字段（修复：中断稿必传 encounter_chance，单独 PUT responders_max 会 422）。
+- 测试修复（中断稿的笔误）：@短名测试里「恋鐘」两处写成「恋鎘」；pick_speakers 的 count=2 写成期望只抽一位；affinity_of 直接拿 'producer' 查库（应先解析 users 表真实 id）。
+
+### 票 03 交接（给票 04/05）
+
+- `POST /api/outings` body `{"character_ids": [...1–3], "location_id": "cinema"}` → 201 `{"outing": _shown}`；`_shown` 含 `id/kind/location_id/location_name/participants[{character_id,character_name,color}]/status/created_at/ended_at/messages[{id,speaker(null=制作人),kind(opening|say|event|ending),text,event,at}]`。
+- `POST /api/outings/{id}/turns` body `{"text"}` → SSE，事件形状同对话流但多 `speaker`（`{character_id,character_name,color}`，user 之后、delta 之前各一次）与 `delta {character_id, text}`；终态 `done {messages:[…落库行]}` 或 `error {message}`。
+- `POST /api/outings/{id}/events` body `{"event_id"}` → `{"event":{id,trigger}, "messages":[…]}`（事件行 + 反应行，整段返回不流式）。
+- `POST /api/outings/{id}/end` → `{"outing":_shown(ended), "settlement":[{character_id,character_name,change|null,affinity{tier,cooldown_until}}]}`；好感度关时 `settlement: []`。
+- 404＝没有这次外出/不是他的；409＝已结束。空白/超长文本走 SSE error 事件。

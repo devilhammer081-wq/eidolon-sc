@@ -47,6 +47,7 @@ from eidolon.characters import Character, load_characters
 from eidolon.drink_catalog import check_bar_tastes, drinks_path, load_drink_catalog
 from eidolon.gift_catalog import Gift, check_liked_gifts, gifts_path, load_gift_catalog
 from eidolon.gifts import Gifts
+from eidolon.group_outings import GroupOutings
 from eidolon.happenings import Happenings
 from eidolon.her_now import HerNow
 from eidolon.hot_words import hot_words
@@ -133,6 +134,9 @@ class Backend:
     solo_outings: SoloOutings
     """The users' walks on their own, and the chance meetings they end in (GLOSSARY.md
     「独自外出」「偶遇」)."""
+    group_outings: GroupOutings
+    """The users' outings with company, on the multi-character turn engine (GLOSSARY.md
+    「外出」)."""
     bar: Bar
     """The bar, and every user's visit under way (GLOSSARY.md「酒吧」「光顾」)."""
     memories: Memories
@@ -520,6 +524,10 @@ def build(
         store, outings, outing_catalog, characters, config, affinities, activity, clock,
         random or secure_random, world,
     )
+    group_outings = GroupOutings(
+        database, store, outings, outing_catalog, characters, config, affinities, memories,
+        activity, clock, random or secure_random, world,
+    )
     config.on_change(gifts.notice)
     return Backend(
         settings=settings,
@@ -530,6 +538,7 @@ def build(
         outing_catalog=outing_catalog,
         outings=outings,
         solo_outings=solo_outings,
+        group_outings=group_outings,
         bar=bar,
         memories=memories,
         titles=titles,

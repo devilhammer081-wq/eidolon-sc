@@ -205,12 +205,16 @@ async def test_a_meeting_is_drawn_at_the_chance_the_admin_console_sets(
         never_met = await walk(client)
 
     assert described == {
-        "status": "env", "env": {"encounter_chance": 0.3},
-        "effective": {"encounter_chance": 0.3}, "override": None, "failure": None,
+        "status": "env",
+        "env": {"encounter_chance": 0.3, "responders_max": 2},
+        "effective": {"encounter_chance": 0.3, "responders_max": 2},
+        "override": None, "failure": None,
     }
     assert refused == [422, 422, 422, 422]
     assert never.status_code == 200
-    assert never.json()["outings"]["effective"] == {"encounter_chance": 0}
+    assert never.json()["outings"]["effective"] == {
+        "encounter_chance": 0, "responders_max": 2
+    }
     assert never_met.json()["encounter"] is None
 
 

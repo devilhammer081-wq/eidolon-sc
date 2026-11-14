@@ -260,6 +260,33 @@ class Memories:
         self._clearings[user_id] = self._clearings.get(user_id, 0) + 1
         await self._settle(user_id)
 
+    def remember(
+        self, db: sqlite3.Connection, user_id: str, source_character_id: str, text: str,
+        now: datetime,
+    ) -> Memory | None:
+        """Keep `text` as the user's memory, told to no turn but shared all the same (an
+        outing's, GLOSSARY.md「外出」, by whoever came along), through `db`, in the caller's
+        transaction, as a carried-in memory is kept: embedded when their memories are
+        next searched (`embed_carried`). None if they have it already, holding or
+        superseded — what they deleted is not brought back."""
+        kept = db.execute(
+            "SELECT id FROM memories WHERE user_id = ? AND text = ?",
+            (user_id, text),
+        ).fetchone()
+        if kept is not None:
+            return None
+        cursor = db.execute(
+            "INSERT INTO memories (user_id, source_character_id, conversation_id, text,"
+            " created_at) VALUES (?, ?, NULL, ?, ?)",
+            (user_id, source_character_id, text, now.astimezone(UTC).isoformat()),
+        )
+        assert cursor.lastrowid is not None
+        return self._memory(
+            cursor.lastrowid, user_id, source_character_id, text,
+            now.astimezone(UTC).isoformat(),
+        )
+
+
     async def embed_missing(
         self,
         batch: int = REEMBED_BATCH,

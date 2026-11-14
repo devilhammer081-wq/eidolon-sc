@@ -73,6 +73,7 @@ from eidolon.config import (
     DEFAULT_REACH_OUTS_PER_DAY,
     DEFAULT_BAILIAN_JUDGE_REGION,
     DEFAULT_ENCOUNTER_CHANCE,
+    DEFAULT_RESPONDERS_MAX,
     ChatModelSettings,
     DEFAULT_JEV_BASE_URL,
     FISH_AUDIO_MODELS,
@@ -855,14 +856,18 @@ class _Moments(_Item):
 
 
 class _Outings(_Item):
-    """How likely the producer out on his own is to meet a character (GLOSSARY.md「偶遇」),
-    as `.env` has it (30% by default); not tried."""
+    """How the producer's outings go (GLOSSARY.md「外出」) — how likely one on his own is to
+    meet a character (GLOSSARY.md「偶遇」, 30% by default), and how many of those out with
+    him reply to one of his turns at the most (two by default); not tried."""
 
     name = OUTINGS
-    fields = ("encounter_chance",)
+    fields = ("encounter_chance", "responders_max")
 
     def env(self) -> Values:
-        return {"encounter_chance": DEFAULT_ENCOUNTER_CHANCE}
+        return {
+            "encounter_chance": DEFAULT_ENCOUNTER_CHANCE,
+            "responders_max": DEFAULT_RESPONDERS_MAX,
+        }
 
     def candidate(self, current: Values, change: Values) -> Values:
         chance = change.get("encounter_chance", current["encounter_chance"])
@@ -871,6 +876,14 @@ class _Outings(_Item):
             or not 0 <= chance <= 1
         ):
             raise ConfigInvalid(f"偶遇概率需要是 0 到 1 之间的数，而不是 {chance!r}")
+        responders = change.get("responders_max", current["responders_max"])
+        if (
+            isinstance(responders, bool) or not isinstance(responders, int)
+            or not 1 <= responders <= 3
+        ):
+            raise ConfigInvalid(
+                f"回应人数上限需要是 1 到 3 之间的整数，而不是 {responders!r}"
+            )
         return current | change
 
 
@@ -1286,10 +1299,11 @@ class LiveConfig:
 
     @property
     def outings(self) -> OutingSettings:
-        """How likely the producer out on his own is to meet a character now (GLOSSARY.md
-        「偶遇」)."""
+        """How the producer's outings go now (GLOSSARY.md「外出」): how likely one on his
+        own is to meet a character, and how many of those out with him reply to one of
+        his turns at the most."""
         values = self.effective(OUTINGS)
-        return OutingSettings(values["encounter_chance"])
+        return OutingSettings(values["encounter_chance"], values["responders_max"])
 
     @property
     def qweather_settings(self) -> QWeatherSettings | None:
