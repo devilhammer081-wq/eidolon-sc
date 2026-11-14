@@ -133,6 +133,21 @@ def add_outing_routes(app: FastAPI, backend: Backend) -> None:
             "outing": _shown(started.outing, started.lines, started.location, backend)
         }
 
+    @app.get("/api/outings/locations")
+    async def list_locations(_: UserId) -> dict:
+        """Where an outing may be had, in the catalog's order: the locations the picker
+        shows, each with the events that may be set off there."""
+        return {"locations": [
+            {
+                "id": location.id,
+                "name": location.name,
+                "events": [
+                    {"id": event.id, "trigger": event.trigger} for event in location.events
+                ],
+            }
+            for location in backend.outing_catalog.values()
+        ]}
+
     @app.get("/api/outings")
     async def list_outings(user_id: UserId) -> dict:
         """The user's outings, the latest first, each with its lines and who, if anyone, he

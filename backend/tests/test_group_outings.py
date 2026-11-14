@@ -124,6 +124,21 @@ def memories_of(settings: Settings) -> list[tuple[str, str]]:
         ).fetchall()
 
 
+async def test_the_locations_are_listed_for_the_picker(make_client: ClientFactory):
+    client = make_client(FakeLLM())
+
+    listed = await client.get("/api/outings/locations")
+
+    assert listed.status_code == 200
+    locations = listed.json()["locations"]
+    assert [each["id"] for each in locations] == list(
+        backend_of(client).outing_catalog.keys()
+    )
+    cinema = next(each for each in locations if each["id"] == "cinema")
+    assert cinema["name"] == "电影院"
+    assert all(event["trigger"] for event in cinema["events"])
+
+
 async def test_the_opening_writes_the_scene_and_their_first_lines(make_client: ClientFactory):
     llm = FakeLLM([OPENING])
     client = make_client(llm, random=FakeRandom())

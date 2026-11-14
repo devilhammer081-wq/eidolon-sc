@@ -11,12 +11,13 @@ import { hasUnseen } from "@/lib/conversationList";
 import { currentNavItem, FIRST_LEVEL, isTyping, navDestination, navDots, navItems, type NavItem } from "@/lib/navShell";
 import { REPOSITORY_URL } from "@/lib/repository";
 import { cn } from "@/lib/utils";
-import { ConversationsIcon, GitHubIcon, MomentsIcon, PlayIcon, SettingsIcon } from "@/theme/icons";
+import { ConversationsIcon, GitHubIcon, MomentsIcon, OutingsIcon, PlayIcon, SettingsIcon } from "@/theme/icons";
 
 const ICONS: Record<NavItem, typeof SettingsIcon> = {
   conversations: ConversationsIcon,
   moments: MomentsIcon,
   play: PlayIcon,
+  outings: OutingsIcon,
   settings: SettingsIcon,
 };
 

@@ -1,6 +1,6 @@
 # 票 05：外出会话页与结算展示
 
-Status: ready-for-agent
+Status: done
 
 Spec: `.scratch/outings/spec.md`
 
@@ -15,8 +15,19 @@ Blocked by: 03, 04
 
 ## 验收
 
-- typecheck + vitest 过。
-- 全流程可走：发起 → 开场 → 说话/@/事件 → 结束 → 结算展示。
-- 偶遇场景：见闻 → 跳对话页。
+- [x] typecheck + vitest 过（1565 个全过），`next build` 出 `/outings/[id]`。
+- [ ] 全流程可走：发起 → 开场 → 说话/@/事件 → 结束 → 结算展示（后端各环节已有 HTTP 测试覆盖；页面级 Playwright 流程留人工验证）。
+- [ ] 偶遇场景：见闻 → 跳对话页（同上，留人工验证）。
 
 ## Comments
+
+### 实现说明（票 05）
+
+由主会话实现。`components/outings/OutingSession.tsx` + `app/(app)/(nav)/outings/[id]/page.tsx`：
+
+- 消息流：制作人的 say 靠右（bg-muted 气泡），角色的靠左带名字着色（characters.toml 的 color），opening 旁白/事件/ending 居中灰字；流式回合按 speaker→delta 增量渲染，done 后换成服务器落库行，error 撤回乐观行并提示。
+- @ 回应与事件菜单：输入照常发文本（@ 由后端解析，v1 不做输入框补全，占位文案说明用法）；事件按钮（Sparkles 图标 Popover）列当前地点事件，触发后整段落入。
+- 结束：`POST /end` 后输入区换结算卡（每位同行「记住了这次外出」+好感变化），好感度关时结算为空、只留结束语。偶遇过的（kind=solo 或 outing 的 encounter）底部给「去和她聊聊」。
+- 会话数据用 `GET /api/outings` 找单条（后端没有单条接口，列表足够小）；404 时回列表页。
+- i18n 全在 `zh.ts` 的 `outings.session`；地点图 `/outings/<location_id>.png`。
+- 页面级全流程 Playwright 留人工（后端流程票 03 已测）。

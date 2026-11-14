@@ -47,6 +47,8 @@ export function isInShell(href: string): boolean {
     path === "/conversations" ||
     conversationOf(path) !== null ||
     path === MOMENTS ||
+    path === OUTFINGS_ROOT ||
+    /^\/outings\/[^/]+\/?$/.test(path) ||
     isPlay(path) ||
     path === "/settings" ||
     path.startsWith("/settings/")
@@ -81,8 +83,12 @@ export function departure(href: string, callee: string | null): Departure {
 /** The moments (GLOSSARY.md「朋友圈」): a first level of its own, with no second. */
 const MOMENTS = "/moments";
 
+/** The outings (GLOSSARY.md「外出」): `/outings` is its first level, `/outings/<id>` one
+ * outing of the user's, under way or over, its second. */
+const OUTFINGS_ROOT = "/outings";
+
 /** The items of the rail and the dock, top to bottom (left to right on the dock). */
-export const NAV_ITEMS = ["conversations", "moments", "play", "settings"] as const;
+export const NAV_ITEMS = ["conversations", "moments", "play", "outings", "settings"] as const;
 export type NavItem = (typeof NAV_ITEMS)[number];
 
 /** The items drawn for a user: the moments only where the account has them (`Account.moments`; null
@@ -97,6 +103,7 @@ export const FIRST_LEVEL: Record<NavItem, string> = {
   conversations: "/conversations",
   moments: MOMENTS,
   play: PLAY_ROOT,
+  outings: OUTFINGS_ROOT,
   settings: "/settings",
 };
 
@@ -105,6 +112,7 @@ export function currentNavItem(href: string): NavItem | null {
   const { path } = pathOf(href);
   if (!isInShell(href)) return null;
   if (isPlay(path)) return "play";
+  if (path === OUTFINGS_ROOT || path.startsWith(`${OUTFINGS_ROOT}/`)) return "outings";
   if (path === MOMENTS) return "moments";
   return path === "/settings" || path.startsWith("/settings/") ? "settings" : "conversations";
 }
@@ -128,6 +136,7 @@ export function navDots(
     conversations,
     moments: moments && current !== "moments",
     play: rewards && current !== "play",
+    outings: false,
     settings: false,
   };
 }

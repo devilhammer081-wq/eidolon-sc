@@ -16,6 +16,10 @@ import { type Her, monthDay, soonest } from "@/lib/cycles";
 import type { GiftState } from "@/lib/gifts";
 import { playHref, type PlaySubpage } from "@/lib/playRoute";
 
+/** Where the outings card goes: the outings' first level, straight into inviting company
+ * (.scratch/outings spec「玩法页的『外出』卡」). */
+const OUTFINGS_HREF = "/outings?invite=1";
+
 const t = copy.play;
 
 /** What the calendar card is made of: the calendar, with each character's name and birthday. */
@@ -47,9 +51,13 @@ export type PlayContext = {
   bar: BarCardContext | null;
 };
 
+/** A card's identifier: a subpage of the play page's own, or 「外出」, which goes to the
+ * outings' first level of its own in the navigation. */
+export type PlayCardId = PlaySubpage | "outings";
+
 /** A card as the page shows it: `status` is empty until the state has been read. */
 export type PlayCard = {
-  id: PlaySubpage;
+  id: PlayCardId;
   name: string;
   href: string;
   status: string;
@@ -59,7 +67,7 @@ export type PlayCard = {
 };
 
 type Definition = {
-  id: PlaySubpage;
+  id: PlayCardId;
   name: string;
   isShown: (context: PlayContext) => boolean;
   /** Empty until what it is made of has been read. */
@@ -77,6 +85,14 @@ function join(parts: (string | null)[]): string {
 }
 
 const CARDS: Definition[] = [
+  {
+    id: "outings",
+    name: t.cards.outingsCard.name,
+    isShown: () => true,
+    status: () => t.cards.outingsCard.status,
+    hasDot: () => false,
+    dotLabel: "",
+  },
   {
     id: "gifts",
     name: t.cards.gifts.name,
@@ -175,7 +191,7 @@ export function playCards(context: PlayContext): PlayCard[] {
   return CARDS.filter((card) => card.isShown(context)).map((card) => ({
     id: card.id,
     name: card.name,
-    href: playHref(card.id),
+    href: card.id === "outings" ? OUTFINGS_HREF : playHref(card.id),
     status: card.status(context),
     hasDot: card.hasDot(context),
     dotLabel: card.dotLabel,

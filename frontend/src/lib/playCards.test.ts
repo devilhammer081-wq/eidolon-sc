@@ -70,26 +70,28 @@ function achievement(id: string, unlockedAt: string | null, stages = 1): Achieve
 const ofId = (cards: ReturnType<typeof playCards>, id: string) => cards.find((card) => card.id === id);
 
 describe("玩法页的卡", () => {
-  it("好感度和礼物开着时有「礼物」「成就」「日历」三张，礼物在上面，各去各的子页", () => {
+  it("好感度和礼物开着时有「外出」「礼物」「成就」「日历」四张，「外出」在最上面，各去各的页", () => {
     const cards = playCards(context());
 
     expect(cards.map((card) => [card.id, card.name, card.href])).toEqual([
+      ["outings", "外出", "/outings?invite=1"],
       ["gifts", "礼物", "/play/gifts"],
       ["achievements", "成就", "/play/achievements"],
       ["calendar", "日历", "/play/calendar"],
     ]);
   });
 
-  it("没开放时只剩「日历」", () => {
+  it("没开放时剩「外出」和「日历」", () => {
     const cards = playCards(context({ state: giftState({ open: false }) }));
 
-    expect(cards.map((card) => card.id)).toEqual(["calendar"]);
+    expect(cards.map((card) => card.id)).toEqual(["outings", "calendar"]);
   });
 
-  it("接口还没回来时卡片就在，状态那一行是空的", () => {
+  it("接口还没回来时卡片就在，状态那一行是空的（「外出」的状态不靠接口）", () => {
     const cards = playCards(context({ state: null, calendar: null }));
 
     expect(cards.map((card) => [card.id, card.status])).toEqual([
+      ["outings", "带上小偶像出门走走"],
       ["gifts", ""],
       ["achievements", ""],
       ["calendar", ""],
@@ -240,6 +242,7 @@ describe("「周期」卡", () => {
     const cards = playCards(context({ cycles: cycles([unrecorded("mano")]) }));
 
     expect(cards.map((card) => [card.id, card.name, card.href])).toEqual([
+      ["outings", "外出", "/outings?invite=1"],
       ["gifts", "礼物", "/play/gifts"],
       ["achievements", "成就", "/play/achievements"],
       ["calendar", "日历", "/play/calendar"],
@@ -254,7 +257,7 @@ describe("「周期」卡", () => {
   it("好感度和礼物没开放时照样有", () => {
     const cards = playCards(context({ state: giftState({ open: false }), cycles: cycles([]) }));
 
-    expect(cards.map((card) => card.id)).toEqual(["calendar", "cycles"]);
+    expect(cards.map((card) => card.id)).toEqual(["outings", "calendar", "cycles"]);
   });
 
   const status = (hers: Her[]) => ofId(playCards(context({ cycles: cycles(hers) })), "cycles")?.status;
@@ -284,7 +287,7 @@ describe("「VA-283」卡", () => {
   it("酒吧开着时排在最后，去酒吧，没有点", () => {
     const cards = playCards(context({ cycles: cycles([]), bar: { rewardToday: true } }));
 
-    expect(cards.map((card) => card.id)).toEqual(["gifts", "achievements", "calendar", "cycles", "bar"]);
+    expect(cards.map((card) => card.id)).toEqual(["outings", "gifts", "achievements", "calendar", "cycles", "bar"]);
     expect(ofId(cards, "bar")).toMatchObject({ name: "VA-283", href: "/play/bar", hasDot: false });
   });
 

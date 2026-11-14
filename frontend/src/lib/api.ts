@@ -1106,3 +1106,136 @@ async function* serverSentEvents<T>(res: Response): AsyncGenerator<T> {
     }
   }
 }
+
+// 外出（GLOSSARY.md「外出」）：入口、发起与历史。
+
+/** One line of an outing: who said it (null for the producer), its kind (opening, say,
+ * event, ending), the event's id for an event line, and when. */
+export type OutingMessage = {
+  speaker: string | null;
+  kind: "opening" | "say" | "event" | "ending";
+  text: string;
+  event: string | null;
+  created_at: string;
+};
+
+/** One who came along: her name and colour should the configuration still have her. */
+export type OutingParticipant = {
+  character_id: string;
+  character_name: string | null;
+  color: string | null;
+};
+
+/** An outing as the browser reads it, with its lines and who, if anyone, was met. */
+export type Outing = {
+  id: number;
+  kind: "solo" | "outing";
+  location_id: string;
+  location_name: string;
+  participants: OutingParticipant[];
+  status: "opening" | "ongoing" | "ended";
+  created_at: string;
+  ended_at: string | null;
+  encounter: { character_id: string; character_name: string | null } | null;
+  messages: OutingMessage[];
+};
+
+/** What one location's picker card is made of. */
+export type OutingLocation = {
+  id: string;
+  name: string;
+  events: { id: string; trigger: string }[];
+};
+
+/** Where an outing may be had, in the catalog's order. */
+export async function listOutingLocations(): Promise<OutingLocation[]> {
+  return (await json<{ locations: OutingLocation[] }>(
+    await api("/api/outings/locations"),
+  )).locations;
+}
+
+/** The user's outings, the latest first. */
+export async function listOutings(): Promise<Outing[]> {
+  return (await json<{ outings: Outing[] }>(await api("/api/outings"))).outings;
+}
+
+/** The producer's walk on his own at `locationId` (null for anywhere drawn), with the
+ * meeting it ended in, if any. */
+export async function startSoloOuting(locationId: string | null): Promise<{
+  outing: Outing;
+  encounter: { character_id: string; conversation_id: string; opening: { text: string } } | null;
+}> {
+  return json<{
+    outing: Outing;
+    encounter: { character_id: string; conversation_id: string; opening: { text: string } } | null;
+  }>(await api("/api/outings/solo", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ location_id: locationId }),
+  }));
+}
+
+/** Setting out with company: one to three characters at a location. */
+export async function startOuting(characterIds: string[], locationId: string): Promise<Outing> {
+  return (await json<{ outing: Outing }>(await api("/api/outings", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ character_ids: characterIds, location_id: locationId }),
+  }))).outing;
+}
+
+/** An outing's event set off: the event and the lines it left. */
+export async function setOffOutingEvent(outingId: number, eventId: string): Promise<{
+  event: { id: string; trigger: string };
+  messages: OutingMessage[];
+}> {
+  return json<{
+    event: { id: string; trigger: string };
+    messages: OutingMessage[];
+  }>(await api(`/api/outings/${outingId}/events`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ event_id: eventId }),
+  }));
+}
+
+/** What one of them came to when the outing ended; `change` null where affinity is off. */
+export type OutingSettlement = {
+  character_id: string;
+  character_name: string;
+  change: { up: boolean; tier: string; tier_changed: boolean; cooldown: boolean } | null;
+  affinity: { tier: string; cooldown_until: string | null };
+  memory: string | null;
+};
+
+/** The outing over: what it came to for each of them, and the outing as it stands. */
+export async function endOuting(outingId: number): Promise<{
+  outing: Outing;
+  settlement: OutingSettlement[];
+}> {
+  return json<{ outing: Outing; settlement: OutingSettlement[] }>(
+    await api(`/api/outings/${outingId}/end`, { method: "POST" }),
+  );
+}
+
+/** One turn of an outing with company: who replies, her words as they come, the lines
+ * kept, or why it failed — the same server-sent events a conversation turn streams, with
+ * the speaker named before her deltas. */
+export async function* sendOutingTurn(
+  outingId: number,
+  text: string,
+): AsyncGenerator<OutingTurnEvent> {
+  const res = await api(`/api/outings/${outingId}/turns`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ text }),
+  });
+  yield* serverSentEvents<OutingTurnEvent>(res);
+}
+
+export type OutingTurnEvent =
+  | { type: "user"; text: string }
+  | { type: "speaker"; character_id: string; name: string; color: string | null }
+  | { type: "delta"; speaker: string; text: string }
+  | { type: "done"; messages: OutingMessage[] }
+  | { type: "error"; message: string };

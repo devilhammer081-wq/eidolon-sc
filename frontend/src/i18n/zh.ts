@@ -40,6 +40,7 @@ export const zh = {
     play: "玩法",
     /** 「玩法」图标上有点时读屏读的名字：有新到的抽奖次数。 */
     playRewarded: "玩法，有新到的抽奖次数",
+    outings: "外出",
     settings: "设置",
   },
   /** 朋友圈页（GLOSSARY.md「朋友圈」，DESIGN.md「朋友圈页」）。 */
@@ -2009,6 +2010,55 @@ export const zh = {
       },
     },
   },
+  /** 外出页（GLOSSARY.md「外出」）：入口、发起向导和历史。 */
+  outings: {
+    title: "外出",
+    /** 入口卡。 */
+    solo: {
+      name: "独自外出",
+      hint: "随便走走，看看会遇见什么",
+      /** 偶遇到了她时见闻下的引导。 */
+      met: (name: string) => `偶遇了 ${name}，去和她聊聊`,
+      failed: "这次散步没有写成，再试一次",
+    },
+    invite: {
+      name: "发起邀约",
+      hint: "带上 1–3 位小偶像一起出门",
+      who: "带上谁",
+      whoHint: (n: number) => `最多 3 位，已选 ${n} 位`,
+      where: "去哪里",
+      start: (n: number) => `和 ${n} 位出发`,
+      startEmpty: "先选一位小偶像",
+      failed: "这次外出没能成行，再试一次",
+    },
+    /** 历史列表。 */
+    history: {
+      title: "走过的外出",
+      empty: "还没有出过门",
+      /** 一条历史的摘要：什么时候、去了哪、和谁。 */
+      line: (when: string, where: string) => `${when} · ${where}`,
+      with: (names: string) => `和 ${names}`,
+      met: (name: string) => `偶遇 ${name}`,
+      ongoing: "进行中",
+      view: "打开",
+    },
+    /** 会话页（票 05 用，先占位）。 */
+    session: {
+      inputPlaceholder: "说点什么，@名字只让她回应",
+      send: "发送",
+      events: "触发事件",
+      eventFailed: "事件没有发生成，再试一次",
+      end: "结束外出",
+      ending: "这次外出结束了",
+      turnFailed: "这句话没有送到，再试一次",
+      /** 结算。 */
+      settled: (names: string) => `${names} 记住了这次外出`,
+    },
+    /** 载入失败等。 */
+    failed: "外出记录没有读到，刷新再试",
+    loading: "正在读外出记录",
+  },
+
   /** 玩法页（GLOSSARY.md「玩法」）：导航里的第一级，每张卡进一个子页（礼物、成就、日历）。 */
   play: {
     title: "玩法",
@@ -2022,6 +2072,10 @@ export const zh = {
       description: "这里还没有开放好感度和礼物。已经有的礼物会留着，开放后照常能送。",
     },
     cards: {
+      outingsCard: {
+        name: "外出",
+        status: "带上小偶像出门走走",
+      },
       gifts: {
         name: "礼物",
         draws: (n: number) => `还有 ${n} 次抽奖`,

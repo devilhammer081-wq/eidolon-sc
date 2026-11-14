@@ -4,12 +4,13 @@ import NextLink from "next/link";
 
 import { useDirectory } from "@/components/conversations/ConversationDirectory";
 import type { PlayCard } from "@/lib/playCards";
-import type { PlaySubpage } from "@/lib/playRoute";
+import type { PlayCardId } from "@/lib/playCards";
 import { cn } from "@/lib/utils";
-import { AchievementsIcon, BarCardIcon, CalendarIcon, CyclesCardIcon, ForwardIcon, GiftIcon } from "@/theme/icons";
+import { AchievementsIcon, BarCardIcon, CalendarIcon, CyclesCardIcon, ForwardIcon, GiftIcon, OutingsIcon } from "@/theme/icons";
 
 /** 每张卡的图标：加一张卡就在这里加一行。 */
-const ICONS: Record<PlaySubpage, typeof GiftIcon> = {
+const ICONS: Record<PlayCardId, typeof GiftIcon> = {
+  outings: OutingsIcon,
   gifts: GiftIcon,
   achievements: AchievementsIcon,
   calendar: CalendarIcon,
