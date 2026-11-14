@@ -33,6 +33,7 @@ export type ItemName =
   | "reach_outs"
   | "letters"
   | "moments"
+  | "outings"
   | "qweather"
   | "schedule"
   | "cycles"
@@ -106,7 +107,7 @@ export const TAB_ITEMS: Record<ConfigTab, ItemName[]> = {
   weather: ["qweather"],
   network: ["proxy"],
   status: ["service_status"],
-  limits: ["limits", "affinity", "reach_outs", "letters", "moments", "schedule", "cycles", "bar"],
+  limits: ["limits", "affinity", "reach_outs", "letters", "moments", "outings", "schedule", "cycles", "bar"],
   registration: ["registration"],
   sponsor: [],
   prices: [],
@@ -396,6 +397,16 @@ export const ITEM_SPECS: Record<ItemName, ItemSpec> = {
       { name: "per_day", kind: "positive" },
       { name: "map", kind: "select", options: MAP_SITES },
       { name: "replies_per_day", kind: "positive" },
+    ],
+    tried: false,
+  },
+  // 外出（GLOSSARY.md「外出」）：独自外出偶遇一位小偶像的概率，和最多几位同行的小偶像回应。不试调。
+  outings: {
+    rows: ["encounter_chance", "responders_max"],
+    secrets: [],
+    form: [
+      { name: "encounter_chance", kind: "probability" },
+      { name: "responders_max", kind: "positive" },
     ],
     tried: false,
   },

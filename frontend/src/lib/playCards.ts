@@ -18,7 +18,7 @@ import { playHref, type PlaySubpage } from "@/lib/playRoute";
 
 /** Where the outings card goes: the outings' first level, straight into inviting company
  * (.scratch/outings spec「玩法页的『外出』卡」). */
-const OUTFINGS_HREF = "/outings?invite=1";
+const OUTINGS_HREF = "/outings?invite=1";
 
 const t = copy.play;
 
@@ -191,7 +191,7 @@ export function playCards(context: PlayContext): PlayCard[] {
   return CARDS.filter((card) => card.isShown(context)).map((card) => ({
     id: card.id,
     name: card.name,
-    href: card.id === "outings" ? OUTFINGS_HREF : playHref(card.id),
+    href: card.id === "outings" ? OUTINGS_HREF : playHref(card.id),
     status: card.status(context),
     hasDot: card.hasDot(context),
     dotLabel: card.dotLabel,

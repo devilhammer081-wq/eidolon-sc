@@ -528,6 +528,7 @@ describe("cycles and the bar", () => {
       "reach_outs",
       "letters",
       "moments",
+      "outings",
       "schedule",
       "cycles",
       "bar",

@@ -309,19 +309,13 @@ class GroupOutings:
             name: each.character.id for each in party for name in names_of(each.character)
         }
 
-        def read(written: str) -> tuple[list[str], list[tuple[str, str]]]:
-            labelled = parse_labelled(written, by_name)
-            if not any(labelled):
-                raise ValueError("nothing worth keeping")
-            return labelled
-
         narration, said = await self._ask(
             user_id,
             opening_prompt(
                 location, party, await self._store.get_profile(user_id)
             ),
             OPEN_FAILED,
-            read,
+            read_labelled(by_name),
         )
         now = self._clock()
         outing = await self._outings.add(
@@ -435,12 +429,6 @@ class GroupOutings:
             name: each.character.id for each in reactors for name in names_of(each.character)
         }
 
-        def read(written: str) -> tuple[list[str], list[tuple[str, str]]]:
-            labelled = parse_labelled(written, by_name)
-            if not any(labelled):
-                raise ValueError("nothing worth keeping")
-            return labelled
-
         narration, said = await self._ask(
             user_id,
             event_prompt(
@@ -452,7 +440,7 @@ class GroupOutings:
                 await self._store.get_profile(user_id),
             ),
             EVENT_FAILED,
-            read,
+            read_labelled(by_name),
         )
         now = self._clock()
         kept = [
@@ -643,6 +631,20 @@ def _memory_text(
     if events:
         text += f"，碰上了{'、'.join(event.trigger for event in events)}"
     return f"{text}。"[:MAX_MEMORY_LENGTH]
+
+
+def read_labelled(by_name: Mapping[str, str]) -> Callable[[str], tuple[list[str], list[tuple[str, str]]]]:
+    """A reader of what the model wrote as labelled lines by those `by_name` names, and
+    that it wrote something worth keeping — a scene or a word of anyone's, else nothing
+    is (`_ask` fails the turn on it)."""
+
+    def read(written: str) -> tuple[list[str], list[tuple[str, str]]]:
+        labelled = parse_labelled(written, by_name)
+        if not any(labelled):
+            raise ValueError("nothing worth keeping")
+        return labelled
+
+    return read
 
 
 def _spoken_among(lines: Sequence[Message]) -> list[str]:

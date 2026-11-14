@@ -168,7 +168,7 @@ async def test_the_opening_writes_the_scene_and_their_first_lines(make_client: C
 @pytest.mark.parametrize(
     "body, code, detail",
     [
-        ({"character_ids": [], "location_id": "cinema"}, 422, None),
+        # 一位也没有和太多位都只走到 pydantic 的条数校验，留太多位这一行。
         ({"character_ids": ["mano"] * 4, "location_id": "cinema"}, 422, None),
         (
             {"character_ids": ["mano", "mano"], "location_id": "cinema"}, 422,

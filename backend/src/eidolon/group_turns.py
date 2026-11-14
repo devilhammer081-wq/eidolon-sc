@@ -35,7 +35,7 @@ from eidolon.affinity import TIERS, Tier, affinity_prompt
 from eidolon.characters import Character
 from eidolon.llm import ChatMessage
 from eidolon.producer import ProducerProfile, producer_prompt
-from eidolon.randomness import Random
+from eidolon.randomness import Random, falls_in
 from eidolon.today import always_known
 
 AFFINITY_BASE = 10
@@ -70,7 +70,7 @@ def pick_speakers(
     picked: list[Candidate] = []
     while remaining and len(picked) < count:
         weights = [speaker_weight(each, spoken) for each in remaining]
-        drawn = _falls_in(weights, random(sum(weights)))
+        drawn = falls_in(weights, random(sum(weights)))
         picked.append(remaining.pop(drawn))
         spoken = (*spoken, picked[-1].character.id)
     return picked
@@ -102,17 +102,6 @@ def mentioned_in(text: str, candidates: Sequence[Candidate]) -> list[Candidate]:
 def names_of(character: Character) -> tuple[str, ...]:
     """The names an @-mention may call her by."""
     return (character.short_name, character.name) if character.short_name else (character.name,)
-
-
-def _falls_in(weights: Sequence[int], drawn: int) -> int:
-    """Which of the candidates their chances `weights` pick, `drawn` a number below their
-    sum."""
-    running = 0
-    for index, weight in enumerate(weights):
-        running += weight
-        if drawn < running:
-            return index
-    return len(weights) - 1
 
 
 def parse_labelled(

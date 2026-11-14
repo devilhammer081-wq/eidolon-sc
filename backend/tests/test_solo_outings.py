@@ -27,7 +27,8 @@ from eidolon.llm import LLMError, Streamed
 from eidolon.outing_catalog import OutingLocation
 from eidolon.outing_prompt import ENCOUNTER_RULES, MET_HIM, WALK_RULES, parse_walk_notes
 from eidolon.producer import Birthday
-from eidolon.solo_outings import encounter_weight, likes_the_place_of, met
+from eidolon.randomness import falls_in
+from eidolon.solo_outings import encounter_weight, likes_the_place_of
 from tests.conftest import CharacterConfig, ClientFactory, KOGANE_SHEET, MANO_SHEET
 from tests.fakes import (
     FAKE_JUDGE,
@@ -377,9 +378,9 @@ def test_whether_she_likes_the_place_of_a_location():
 
 
 def test_the_draw_picks_whose_chance_it_falls_in():
-    assert met([10, 30], 0) == 0
-    assert met([10, 30], 9) == 0
-    assert met([10, 30], 10) == 1
-    assert met([10, 30], 39) == 1
-    assert met([100, 50], 99) == 0
-    assert met([100, 50], 100) == 1
+    assert falls_in([10, 30], 0) == 0
+    assert falls_in([10, 30], 9) == 0
+    assert falls_in([10, 30], 10) == 1
+    assert falls_in([10, 30], 39) == 1
+    assert falls_in([100, 50], 99) == 0
+    assert falls_in([100, 50], 100) == 1

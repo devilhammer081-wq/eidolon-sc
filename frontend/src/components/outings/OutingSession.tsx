@@ -46,7 +46,7 @@ function Line({
   }
   if (line.speaker === null) {
     return (
-      <p className="max-w-[85%] self-end rounded-2xl bg-muted px-3 py-2 text-body whitespace-pre-wrap">
+      <p className="max-w-[85%] self-end rounded-bubble bg-muted px-3 py-2 text-body whitespace-pre-wrap">
         {line.text}
       </p>
     );
@@ -57,7 +57,7 @@ function Line({
       <span className="text-meta" style={who?.color ? { color: who.color } : undefined}>
         {who?.name ?? line.speaker}
       </span>
-      <p className="rounded-2xl border px-3 py-2 text-body whitespace-pre-wrap">{line.text}</p>
+      <p className="rounded-bubble border px-3 py-2 text-body whitespace-pre-wrap">{line.text}</p>
     </div>
   );
 }
@@ -254,7 +254,7 @@ export function OutingSession({ id }: { id: number }) {
             <span className="text-meta" style={each.color ? { color: each.color } : undefined}>
               {each.name}
             </span>
-            <p className="rounded-2xl border px-3 py-2 text-body whitespace-pre-wrap">{each.said}</p>
+            <p className="rounded-bubble border px-3 py-2 text-body whitespace-pre-wrap">{each.said}</p>
           </div>
         ))}
         {settlement !== null && (

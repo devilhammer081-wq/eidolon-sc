@@ -31,3 +31,13 @@ Blocked by: 03, 04
 - 会话数据用 `GET /api/outings` 找单条（后端没有单条接口，列表足够小）；404 时回列表页。
 - i18n 全在 `zh.ts` 的 `outings.session`；地点图 `/outings/<location_id>.png`。
 - 页面级全流程 Playwright 留人工（后端流程票 03 已测）。
+
+### 审查修复（两轴 code-review，基点 5875cdf）
+
+直接修了的：
+- 气泡圆角用了 `rounded-2xl`，违反 frontend/AGENTS.md「有名字的值必须用 token」→ 三处气泡改 `rounded-bubble`（卡片/区块的 `rounded-2xl` 不动）。
+
+判断题（未改，记录）：
+- `@` 没有输入补全（票面底线是「菜单点选 @ 也行」），现在只有占位文案说明用法，由后端解析 `@名字`。
+- 说话者颜色用内联 `style={{ color }}` 逐人上色，没走 `herVars`（那套机制是单人子树用的，多说话人不适配）。
+- 两条验收（全流程、偶遇跳转）仍留人工 Playwright。

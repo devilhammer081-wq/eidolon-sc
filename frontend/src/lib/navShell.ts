@@ -47,7 +47,7 @@ export function isInShell(href: string): boolean {
     path === "/conversations" ||
     conversationOf(path) !== null ||
     path === MOMENTS ||
-    path === OUTFINGS_ROOT ||
+    path === OUTINGS_ROOT ||
     /^\/outings\/[^/]+\/?$/.test(path) ||
     isPlay(path) ||
     path === "/settings" ||
@@ -85,7 +85,7 @@ const MOMENTS = "/moments";
 
 /** The outings (GLOSSARY.md「外出」): `/outings` is its first level, `/outings/<id>` one
  * outing of the user's, under way or over, its second. */
-const OUTFINGS_ROOT = "/outings";
+const OUTINGS_ROOT = "/outings";
 
 /** The items of the rail and the dock, top to bottom (left to right on the dock). */
 export const NAV_ITEMS = ["conversations", "moments", "play", "outings", "settings"] as const;
@@ -103,7 +103,7 @@ export const FIRST_LEVEL: Record<NavItem, string> = {
   conversations: "/conversations",
   moments: MOMENTS,
   play: PLAY_ROOT,
-  outings: OUTFINGS_ROOT,
+  outings: OUTINGS_ROOT,
   settings: "/settings",
 };
 
@@ -112,7 +112,7 @@ export function currentNavItem(href: string): NavItem | null {
   const { path } = pathOf(href);
   if (!isInShell(href)) return null;
   if (isPlay(path)) return "play";
-  if (path === OUTFINGS_ROOT || path.startsWith(`${OUTFINGS_ROOT}/`)) return "outings";
+  if (path === OUTINGS_ROOT || path.startsWith(`${OUTINGS_ROOT}/`)) return "outings";
   if (path === MOMENTS) return "moments";
   return path === "/settings" || path.startsWith("/settings/") ? "settings" : "conversations";
 }

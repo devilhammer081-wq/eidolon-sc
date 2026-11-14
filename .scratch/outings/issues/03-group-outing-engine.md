@@ -55,3 +55,17 @@ Blocked by: 01
 - `POST /api/outings/{id}/events` body `{"event_id"}` → `{"event":{id,trigger}, "messages":[…]}`（事件行 + 反应行，整段返回不流式）。
 - `POST /api/outings/{id}/end` → `{"outing":_shown(ended), "settlement":[{character_id,character_name,change|null,affinity{tier,cooldown_until}}]}`；好感度关时 `settlement: []`。
 - 404＝没有这次外出/不是他的；409＝已结束。空白/超长文本走 SSE error 事件。
+
+### 审查修复（两轴 code-review，基点 5875cdf）
+
+直接修了的：
+- 加权抽取重复：`solo_outings.met` 与 `group_turns._falls_in` 逐字相同 → 归到 `randomness.falls_in`；`AFFINITY_BASE` 两处各一份 → `solo_outings` 改从 `group_turns` 引。
+- `open`/`happen` 里重复的 `read` 闭包 → 抽成 `read_labelled(by_name)` 工厂。
+- `test_starting_refuses_what_cannot_be` 的「一位也没有」「太多位」两行都只走 pydantic 条数校验 → 留一行。
+
+判断题（未改，记录）：
+- spec「事件自然收尾」没做：只有用户主动 `POST /end` 能结束，事件不会自行收尾。已知缺口，后续要做需定「谁判定收尾」。
+- spec「角色之间会互相搭话」只做到近似：关系权重让相识的更容易一起回应、回应者看得到前面的台词；没有角色自发开口的回合。
+- `@` 多位＝多位都回（`mentioned_in` 返回全部被点名者），spec 字面是单数「仅其回复」。
+- 记忆文本偏薄：只记谁去了哪、碰上了哪些事件，过程（说了什么、事件怎么收场）只进了好感判断、没进记忆。
+- `_world_prompt` 在 solo/group 两处近似重复；`%m月%d日 %H:%M（时区）` 格式化两处重复——未抽。

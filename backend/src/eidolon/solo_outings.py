@@ -55,15 +55,14 @@ from eidolon.outing_prompt import (
 from eidolon.outings import Outing, Outings
 from eidolon.producer import ProducerProfile, effective_timezone, local_date
 from eidolon.randomness import Random
+from eidolon.group_turns import AFFINITY_BASE
+from eidolon.randomness import falls_in
 from eidolon.reply_format import ReplyParser, Segment
 from eidolon.store import Conversation, ReachOut, ReachOutRefused, Store
 from eidolon.world import World
 
 log = logging.getLogger(__name__)
 
-AFFINITY_BASE = 10
-"""How much of a chance to be met is everyone's before affinity: no one impossible, however
-cold."""
 LIKED_PLACE = 2
 """How many times the chance of her who likes a kind of place the location counts as, over
 her who likes none of them."""
@@ -237,7 +236,7 @@ class SoloOutings:
             encounter_weight(tier, likes_the_place_of(character, location))
             for character, tier in zip(listed, tiers, strict=True)
         ]
-        drawn = met(weights, self._random(sum(weights)))
+        drawn = falls_in(weights, self._random(sum(weights)))
         return listed[drawn], tiers[drawn] or "trust"
 
     def _world_prompt(
@@ -275,12 +274,3 @@ def likes_the_place_of(character: Character, location: OutingLocation) -> bool:
     )
 
 
-def met(weights: list[int], drawn: int) -> int:
-    """Which of the candidates their chances `weights` pick, `drawn` a number below their
-    sum."""
-    running = 0
-    for index, weight in enumerate(weights):
-        running += weight
-        if drawn < running:
-            return index
-    return len(weights) - 1

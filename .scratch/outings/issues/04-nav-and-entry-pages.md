@@ -38,3 +38,13 @@ Blocked by: 01
 - API 客户端（lib/api.ts）：locations/list/start-solo/start/turns(SSE)/events/end 全套，SSE 复用既有 `serverSentEvents`；后端补了 `GET /api/outings/locations`（带事件清单，会话页事件菜单用）。
 - worktree 注意：node_modules 联接 Turbopack build 不认（跨根目录），已换真实 `npm install`；typecheck/vitest 用联接没问题。
 - 视觉冒烟（导航/卡片/向导长相）留人工验证。
+
+### 审查修复（两轴 code-review，基点 5875cdf）
+
+直接修了的：
+- **管理台缺「外出」设置卡**（票 02 交接点名要求、此前漏做）：`adminConfig.ts` 加 `outings` 项（限额与玩法 tab，偶遇概率用 probability、回应人数用 positive）+ `zh.ts` 管理台文案 + 既有测试更新。部署者现在能在后台改偶遇概率和回应人数。
+- 常量名 `OUTFINGS_ROOT`/`OUTFINGS_HREF` 是笔误 → `OUTINGS_ROOT`/`OUTINGS_HREF`。
+
+判断题（未改，记录）：
+- spec「直接点导航『外出』是制作人独自外出」：实际落在入口页（独自外出/发起邀约两张卡），一点才走。理由：点导航就直接发起会每次导航都触发一次 LLM 调用；入口页一步之遥。待用户确认是否要改成直达。
+- 「外出」卡在玩法页永远显示（不看好感度开关）；`GET /api/outings/locations` 是 spec 接口清单之外补的（事件菜单要用）。
