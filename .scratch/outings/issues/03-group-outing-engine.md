@@ -30,3 +30,10 @@ Blocked by: 01
 - 消息表已按群聊复用设计（`speaker` 空＝制作人、语义通用）：功能二群聊可以直接用这张表/照这个形态建，别另起一套时以它为准。
 - 写操作越权/已结束抛 `OutingGone`（「这次外出已经结束了」），API 层接成 404/409；`begin` 只能从 opening 进、`end` 只能一次，重复调同样抛。
 - LiveConfig 的 `OutingSettings`（encounter_chance、responders_max 等）本票没建，按你的任务 2/5 自己加。
+
+### 票 02 交接
+
+- `OutingSettings` 已经建好（config.py + live_config.py `_Outings`，`LiveConfig.outings` 读）：`encounter_chance`（默认 0.3）就是沿用它；补 `responders_max` 等字段在同一 dataclass + `_Outings.fields`/`candidate`/`env` 里加，`admin_config_api.py` 的 `OutingsInput` 同步加字段（漏了后者管理台改不了，PUT 一律 404）。
+- `GET /api/outings` 和它的 `_shown`（outings_api.py）对 solo/outing 两种 kind 通用，你建的同行 outing 会自动进历史列表；返回里要给同行加的字段（比如参与角色详情）就在 `_shown` 里加。
+- 抽签接缝别硬复用：solo_outings 里「按权重抽一位」是偶遇专用（好感档位 + place_likes），和你要写的 `group_turns.pick_speakers`（好感 + relations 关系图 + 底噪）不是一个东西；真要共享等形状趋同再说。
+- 同行的开场不是搭话：照票 01 交接的 `message(kind="opening", speaker=…)` 落消息表，别学偶遇的 `Store.add_reach_out`（那是偶遇把新对话开起来的做法，见 `outing_prompt.encounter_prompt`）。

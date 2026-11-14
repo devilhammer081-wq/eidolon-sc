@@ -139,6 +139,19 @@ class MomentSettings:
     replies_per_day: int = DEFAULT_MOMENT_REPLIES_PER_DAY
 
 
+DEFAULT_ENCOUNTER_CHANCE = 0.3
+"""How likely the producer out on his own is to meet a character (GLOSSARY.md「偶遇」), unless
+the admin console says otherwise."""
+
+
+@dataclass(frozen=True)
+class OutingSettings:
+    """How likely the producer out on his own (GLOSSARY.md「独自外出」) is to meet a
+    character (GLOSSARY.md「偶遇」); the admin console may override it."""
+
+    encounter_chance: float = DEFAULT_ENCOUNTER_CHANCE
+
+
 @dataclass(frozen=True)
 class ProxySettings:
     """The proxy what is in `services` reaches its providers through, if it is

@@ -53,6 +53,7 @@ from eidolon.hot_words import hot_words
 from eidolon.job_list import jobs_path, load_job_list
 from eidolon.outing_catalog import OutingLocation, load_outing_catalog, outings_path
 from eidolon.outings import Outings
+from eidolon.solo_outings import SoloOutings
 from eidolon.place_pool import check_job_places, check_place_likes, load_place_pool, places_path
 from eidolon.housekeeping import keep_tidy
 from eidolon.loop_lag import watch_the_loop
@@ -129,6 +130,9 @@ class Backend:
     """The outing catalog (GLOSSARY.md「外出」), by identifier."""
     outings: Outings
     """The users' outings, and the lines of them (GLOSSARY.md「外出」)."""
+    solo_outings: SoloOutings
+    """The users' walks on their own, and the chance meetings they end in (GLOSSARY.md
+    「独自外出」「偶遇」)."""
     bar: Bar
     """The bar, and every user's visit under way (GLOSSARY.md「酒吧」「光顾」)."""
     memories: Memories
@@ -512,6 +516,10 @@ def build(
         database, characters, config, affinities, activity, memories, her_now, clock,
         random or secure_random, weathers, schedules, photos, world, places,
     )
+    solo_outings = SoloOutings(
+        store, outings, outing_catalog, characters, config, affinities, activity, clock,
+        random or secure_random, world,
+    )
     config.on_change(gifts.notice)
     return Backend(
         settings=settings,
@@ -521,6 +529,7 @@ def build(
         gift_catalog=gift_catalog,
         outing_catalog=outing_catalog,
         outings=outings,
+        solo_outings=solo_outings,
         bar=bar,
         memories=memories,
         titles=titles,

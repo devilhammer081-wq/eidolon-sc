@@ -851,10 +851,11 @@ class Store:
         return conversation_id in self._taking_turns
 
     async def add_reach_out(
-        self, conversation_id: str, said: list[Segment], contact: datetime, in_call: bool
+        self, conversation_id: str, said: list[Segment], contact: datetime | None, in_call: bool
     ) -> ReachOut:
         """Record what she said first in the conversation, now, as she thought it after the
-        user and she were last in touch at `contact`; not seen yet. It is not,
+        user and she were last in touch at `contact` (None in one they never have been); not
+        seen yet. It is not,
         `ReachOutRefused`, with a text turn under way in it or a call, as `in_call` says,
         looked at on the event loop as it is handed in; nor unless, looked at again as it
         is recorded, the conversation is still her current one, not ended, last in touch at
@@ -1803,7 +1804,7 @@ def _add_reach_out(
     db: sqlite3.Connection,
     conversation_id: str,
     said: list[Segment],
-    contact: datetime,
+    contact: datetime | None,
     created_at: str,
 ) -> ReachOut:
     ja, zh = "".join(s.ja for s in said), "".join(s.zh for s in said)
@@ -1821,7 +1822,7 @@ def _add_reach_out(
         current is None or current[0] != conversation_id
         or read_ended(db, conversation_id) is not None
         or _last_contact_in(db, conversation_id) != contact
-        or (reached_out_at is not None and _at(reached_out_at) >= contact)
+        or (reached_out_at is not None and (contact is None or _at(reached_out_at) >= contact))
     ):
         raise ReachOutRefused()
     cursor = db.execute(

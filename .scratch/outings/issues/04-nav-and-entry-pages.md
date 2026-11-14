@@ -22,3 +22,8 @@ Blocked by: 01
 - （票 05 未做时会话页不可用，入口可先禁用或占位）
 
 ## Comments
+
+### 票 02 交接
+
+- 独自外出后端已就绪：`POST /api/outings/solo`（body `{location_id: string | null}`，null 抽随机；201 返回 `{outing, encounter}`，偶遇命中时 `encounter = {character_id, conversation_id, opening}`——拿着 conversation_id 跳现有对话页即可，开场白就是她的搭话；模型失败 502「这次外出没有成行，请稍后再试」，可直接 toast）。历史列表每条的形状见 `outings_api._shown`：`location_id/location_name/messages[]/encounter {character_id, character_name | null}/…`。
+- 管理台的「外出」配置卡（encounter_chance）后端已开（`/api/admin/config/outings`），前端 `lib/adminConfig.ts` 还不认识 `outings` 这个 item：加进 `ItemName`/`ITEM_SPECS`/`TAB_ITEMS`（limits 那组，moments 后面）时顺手补上，不然部署者改不了偶遇概率。

@@ -8,7 +8,8 @@ Image beside it (`_GptImage`), the
 judge model and its thresholds,
 the reranker's thresholds, and the limits (per hour, per call, and the turns each prompt
 carries, with the exempting keys), whether affinity and gifts are on, whether characters
-reach out to users and how often at most (GLOSSARY.md「搭话」), and which of the
+reach out to users and how often at most (GLOSSARY.md「搭话」), how likely the producer out on
+his own is to meet a character (GLOSSARY.md「偶遇」), and which of the
 deployer's services and of users' own keys go through which proxy (GLOSSARY.md「网络代理」), and
 which services users are shown the status of, over how long (GLOSSARY.md「服务状态」), and who
 may sign up (GLOSSARY.md「注册方式」). Overrides are
@@ -71,6 +72,7 @@ from eidolon.config import (
     MAP_SITES,
     DEFAULT_REACH_OUTS_PER_DAY,
     DEFAULT_BAILIAN_JUDGE_REGION,
+    DEFAULT_ENCOUNTER_CHANCE,
     ChatModelSettings,
     DEFAULT_JEV_BASE_URL,
     FISH_AUDIO_MODELS,
@@ -94,6 +96,7 @@ from eidolon.config import (
     QWeatherSettings,
     qweather_host,
     MomentSettings,
+    OutingSettings,
     ReachOutSettings,
     Registration,
     Service,
@@ -161,6 +164,7 @@ AFFINITY = "affinity"
 REACH_OUTS = "reach_outs"
 LETTERS = "letters"
 MOMENTS = "moments"
+OUTINGS = "outings"
 SCHEDULE = "schedule"
 CYCLES = "cycles"
 BAR = "bar"
@@ -850,6 +854,26 @@ class _Moments(_Item):
         return current | change
 
 
+class _Outings(_Item):
+    """How likely the producer out on his own is to meet a character (GLOSSARY.md「偶遇」),
+    as `.env` has it (30% by default); not tried."""
+
+    name = OUTINGS
+    fields = ("encounter_chance",)
+
+    def env(self) -> Values:
+        return {"encounter_chance": DEFAULT_ENCOUNTER_CHANCE}
+
+    def candidate(self, current: Values, change: Values) -> Values:
+        chance = change.get("encounter_chance", current["encounter_chance"])
+        if (
+            isinstance(chance, bool) or not isinstance(chance, int | float)
+            or not 0 <= chance <= 1
+        ):
+            raise ConfigInvalid(f"偶遇概率需要是 0 到 1 之间的数，而不是 {chance!r}")
+        return current | change
+
+
 class _QWeather(_Item):
     """The deployer's QWeather account (和风天气), for where the producer is: its own API
     host, the developer's, the project's and the credential's ids, and the Ed25519 private
@@ -1144,7 +1168,7 @@ class LiveConfig:
                 # The proxy first: as the server starts, the services are tried through it.
                 _Proxy(self), _ChatLLM(self), _MemoryLLM(self), _TTS(self), _STT(self),
                 _Image(self), _GptImage(self), _Judge(self), _JudgeThresholds(self), _Rerank(self),
-                _Limits(self), _Affinity(self), _ReachOuts(self), _Letters(self), _Moments(self), _QWeather(self), _Schedule(self),
+                _Limits(self), _Affinity(self), _ReachOuts(self), _Letters(self), _Moments(self), _Outings(self), _QWeather(self), _Schedule(self),
                 _Cycles(self), _Bar(self), _ServiceStatus(self), _Registration(self),
             )
         }
@@ -1259,6 +1283,13 @@ class LiveConfig:
         return MomentSettings(
             values["enabled"], values["per_day"], values["map"], values["replies_per_day"]
         )
+
+    @property
+    def outings(self) -> OutingSettings:
+        """How likely the producer out on his own is to meet a character now (GLOSSARY.md
+        「偶遇」)."""
+        values = self.effective(OUTINGS)
+        return OutingSettings(values["encounter_chance"])
 
     @property
     def qweather_settings(self) -> QWeatherSettings | None:

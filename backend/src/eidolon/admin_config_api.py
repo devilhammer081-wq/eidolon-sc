@@ -35,6 +35,7 @@ from eidolon.live_config import (
     MEMORY_LLM,
     LETTERS,
     MOMENTS,
+    OUTINGS,
     PROXY,
     QWEATHER,
     REACH_OUTS,
@@ -230,6 +231,13 @@ class MomentsInput(BaseModel):
     replies_per_day: Any = None
 
 
+class OutingsInput(BaseModel):
+    """How likely the producer out on his own is to meet a character, a number from 0 to
+    1; checked by the live configuration."""
+
+    encounter_chance: Any
+
+
 class ScheduleInput(BaseModel):
     """Whether each week's jobs are published for producers to schedule, true or false;
     checked by the live configuration."""
@@ -310,6 +318,7 @@ INPUTS: dict[str, type[BaseModel]] = {
     REACH_OUTS: ReachOutsInput,
     LETTERS: LettersInput,
     MOMENTS: MomentsInput,
+    OUTINGS: OutingsInput,
     QWEATHER: QWeatherInput,
     SCHEDULE: ScheduleInput,
     CYCLES: CyclesInput,

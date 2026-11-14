@@ -1,6 +1,7 @@
 """Activity records (GLOSSARY.md「运行记录」): one for each turn, each call, each reach-out
 (GLOSSARY.md「搭话」), each visit to the bar (GLOSSARY.md「光顾」), each moment she posts
-(GLOSSARY.md「朋友圈」) and each letter she writes (GLOSSARY.md「信」), saying how it turned
+(GLOSSARY.md「朋友圈」), each letter she writes (GLOSSARY.md「信」) and each walk the producer
+takes on his own (GLOSSARY.md「独自外出」), saying how it turned
 out, and
 one for each call to an outside service, saying which service, whose key, whether it failed
 and how, how long it took and what it was billed for; an LLM's, also how much of its input
@@ -126,13 +127,15 @@ LLM_SERVICES: tuple[ServiceName, ...] = ("chat_llm", "memory_llm")
 says how soon its first word came and at which reasoning effort."""
 
 RecordKind = Literal[
-    "turn", "call", "reach_out", "achievement", "visit", "moment", "moment_reply", "letter"
+    "turn", "call", "reach_out", "achievement", "visit", "moment", "moment_reply", "letter",
+    "outing",
 ]
 """A reach-out is neither a turn nor a call, nor counted as one anywhere; it is always on the
 deployer's keys, as a moment is, and her reply to the producer's comment on one
 (`moment_reply`), and neither is either; nor is a letter she writes (`letter`). Nor is an
 achievement's stage unlocked or a character complete, which has no service calls; nor a
-visit to the bar."""
+visit to the bar. Nor is the producer's walk on his own (`outing`), nor what the character he
+met on it opens with: both on the deployer's keys, as a moment is."""
 OWN_LLM_KINDS: frozenset[RecordKind] = frozenset({"turn", "visit"})
 """The kinds whose record keeps, as being on the user's own keys, whether its LLM was the
 user's own; the others keep whether they were exempt."""
