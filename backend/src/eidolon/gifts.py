@@ -23,8 +23,10 @@ or not (`reward_everyone`). The day's first visit to the bar done gives a draw c
 held to the most kept (`reward_draw`).
 
 An admin may give every user there is a reset card at once (`grant_reset_cards`), banned
-ones and admins too, but no one user anything on their own. Each grant is kept, when and
-how many, saying nothing of who granted it or to whom: that too is no one's.
+ones and admins too, and may give one user draw chances as a compensation (`grant_draws`),
+over the most kept each day; but no one user gifts, affinity or reset cards on their own.
+Each grant is kept, when and how many, saying nothing of who granted it: that too is no
+one's, and what the user has now is not shown to the admin.
 
 Each draw uses a chance and gives a reset card or a gift, as likely as `affinity.DRAW_ODDS`
 says, any of the rarity's gifts not retired as likely as another: nothing is guaranteed,
@@ -38,6 +40,7 @@ from collections.abc import Callable, Iterable
 from dataclasses import asdict, dataclass
 from datetime import date, datetime, timedelta
 from itertools import accumulate
+from uuid import uuid4
 
 from eidolon.affinity import (
     BELOW_TRUST,
@@ -101,6 +104,9 @@ CREATE TABLE IF NOT EXISTS gift_rewards (
 
 RESET_CARD = "reset_card"
 """What a draw gives that is not a gift."""
+
+MAX_GRANTED_DRAWS = 1000
+"""The most draw chances an admin may give one user at a time, as a compensation."""
 
 
 class GiftsClosed(Exception):
@@ -249,6 +255,19 @@ class Reward:
 @dataclass(frozen=True)
 class Grant:
     """A time every user was given a reset card: when, and how many were given."""
+
+    granted_at: datetime
+    count: int
+
+    def shown(self) -> dict:
+        """As the admin console is told it."""
+        return {"granted_at": self.granted_at.isoformat(), "count": self.count}
+
+
+@dataclass(frozen=True)
+class DrawGrant:
+    """Draw chances an admin gave one user: when, and how many. Nothing of the user's
+    balance is shown, as the admin console never shows it."""
 
     granted_at: datetime
     count: int
@@ -465,6 +484,14 @@ class Gifts:
         await self.refuse_unless_open()
         return await self._db.write(_grant_reset_cards, self._clock())
 
+    async def grant_draws(self, user_id: str, count: int) -> DrawGrant:
+        """Give the user `count` draw chances now, over the most kept each day, as an
+        admin's compensation: kept as a reward, so the user is told of new chances as they
+        are of any other. Raises GiftsClosed if gifts are not open; `count` is the caller's
+        to bound (1 to `MAX_GRANTED_DRAWS`)."""
+        await self.refuse_unless_open()
+        return await self._db.write(_grant_draws, user_id, count, self._clock())
+
     async def last_grant(self) -> Grant | None:
         """The latest time every user was given a reset card; None if never."""
         return await self._db.read(_last_grant)
@@ -581,6 +608,15 @@ def _last_rewarded(db: sqlite3.Connection, user_id: str) -> datetime | None:
         "SELECT MAX(rewarded_at) FROM gift_rewards WHERE user_id = ?", (user_id,)
     ).fetchone()
     return at and datetime.fromisoformat(at)
+
+
+def _grant_draws(db: sqlite3.Connection, user_id: str, count: int, now: datetime) -> DrawGrant:
+    # `_give` first, so that an admin's grant comes on top of whatever the day has already
+    # brought, and a user with no balance yet still gets the new user's chances too.
+    _give(db, user_id, day_of(now))
+    if not _credit(db, user_id, Reward(f"admin-draws:{uuid4().hex}", count), now):
+        raise RuntimeError("an admin's draw grant was counted as already given")
+    return DrawGrant(now, count)
 
 
 def _grant_reset_cards(db: sqlite3.Connection, now: datetime) -> Grant:
