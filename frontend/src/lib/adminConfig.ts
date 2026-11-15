@@ -34,6 +34,7 @@ export type ItemName =
   | "letters"
   | "moments"
   | "outings"
+  | "group_chat"
   | "qweather"
   | "schedule"
   | "cycles"
@@ -107,7 +108,7 @@ export const TAB_ITEMS: Record<ConfigTab, ItemName[]> = {
   weather: ["qweather"],
   network: ["proxy"],
   status: ["service_status"],
-  limits: ["limits", "affinity", "reach_outs", "letters", "moments", "outings", "schedule", "cycles", "bar"],
+  limits: ["limits", "affinity", "reach_outs", "letters", "moments", "outings", "group_chat", "schedule", "cycles", "bar"],
   registration: ["registration"],
   sponsor: [],
   prices: [],
@@ -223,6 +224,10 @@ export const REGISTRATIONS = ["open", "invite"] as const;
 
 /** Where a moment's place links to on the map (GLOSSARY.md「地点」): OpenStreetMap, Google Maps or Amap. */
 export const MAP_SITES = ["osm", "google", "amap"] as const;
+
+/** How who speaks in the group chat (GLOSSARY.md「群聊」) is drawn: uniformly, or weighted by
+ * affinity and relations. */
+export const SPEAKER_MODES = ["random", "relation_weighted"] as const;
 
 /** How many of the latest minutes the service status may go by, as the backend takes them. */
 export const STATUS_WINDOWS = ["10", "30", "60"] as const;
@@ -407,6 +412,18 @@ export const ITEM_SPECS: Record<ItemName, ItemSpec> = {
     form: [
       { name: "encounter_chance", kind: "probability" },
       { name: "responders_max", kind: "positive" },
+    ],
+    tried: false,
+  },
+  // 群聊（GLOSSARY.md「群聊」）：总开关，每天开几个话题，每个话题最多几回合，怎么选谁说话。不试调。
+  group_chat: {
+    rows: ["enabled", "topics_per_day", "max_turns", "speaker_mode"],
+    secrets: [],
+    form: [
+      { name: "enabled", kind: "switch" },
+      { name: "topics_per_day", kind: "positive" },
+      { name: "max_turns", kind: "positive" },
+      { name: "speaker_mode", kind: "select", options: SPEAKER_MODES },
     ],
     tried: false,
   },

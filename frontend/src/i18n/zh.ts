@@ -1566,6 +1566,10 @@ export const zh = {
           title: "外出",
           hint: "独自外出时偶遇一位小偶像的概率（0 到 1 的小数），和制作人说话时最多几位同行的小偶像回应（1 到 3）。不试调。",
         },
+        group_chat: {
+          title: "群聊",
+          hint: "283事务所的群：全体角色和制作人在一个群里。每天开几个话题、每个话题最多几回合在这里定，选人方式定角色接话按好感与关系加权还是均等随机。用的是部署者的对话模型，花费由部署者出。不试调。",
+        },
         moments: {
           title: "朋友圈",
           hint: "打开后，和用户聊过的角色会在他的朋友圈里发动态。用的是部署者的对话模型，花费由部署者出，自带 LLM 的用户也一样。保存后下一分钟起生效。",
@@ -1668,6 +1672,12 @@ export const zh = {
           key_id: "凭据 ID",
           private_key: "私钥（Ed25519）",
         },
+        group_chat: {
+          enabled: "群聊",
+          topics_per_day: "每天开几个话题",
+          max_turns: "每个话题最多几回合",
+          speaker_mode: "选人方式",
+        },
         schedule: { enabled: "日程" },
         cycles: { enabled: "周期" },
         bar: { enabled: "酒吧" },
@@ -1758,6 +1768,8 @@ export const zh = {
       /** 注册方式（GLOSSARY.md「注册方式」）的两种。 */
       registrations: { open: "谁都能注册", invite: "只让受邀的人注册" } as Record<string, string>,
       mapSites: { osm: "OpenStreetMap", google: "Google Maps", amap: "高德地图" } as Record<string, string>,
+      /** 群聊（GLOSSARY.md「群聊」）选谁说话的两种方式。 */
+      speakerModes: { random: "均等随机", relation_weighted: "按好感与关系加权" } as Record<string, string>,
       imageFormats: { novelai: "NovelAI 官方格式", openai: "OpenAI 图像格式" } as Record<string, string>,
       imageModels: {
         "nai-diffusion-5-curated": "V5 Curated",

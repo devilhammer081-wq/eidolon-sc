@@ -152,11 +152,38 @@ when fewer are along."""
 @dataclass(frozen=True)
 class OutingSettings:
     """How the producer's outings go (GLOSSARY.md「外出」): how likely one on his own is to
-    meet a character (GLOSSARY.md「偶遇」), and how many of those out with him reply to one
-    of his turns at the most; the admin console may override them."""
+    meet a character (GLOSSARY.md「偶遇」), and how many of those out with him reply to one of
+    his turns at the most; the admin console may override them."""
 
     encounter_chance: float = DEFAULT_ENCOUNTER_CHANCE
     responders_max: int = DEFAULT_RESPONDERS_MAX
+
+
+DEFAULT_GROUP_TOPICS_PER_DAY = 3
+"""How many topics a day the characters open in a user's group chat (GLOSSARY.md「群聊」),
+of them all together, unless the admin console says otherwise."""
+
+DEFAULT_GROUP_MAX_TURNS = 8
+"""How many turns a topic in a user's group chat (GLOSSARY.md「群聊」) may run at the most,
+unless the admin console says otherwise."""
+
+SpeakerMode = Literal["random", "relation_weighted"]
+"""How who speaks in the group chat is drawn: uniformly, or weighted by her affinity with
+the producer and her relations to whoever has spoken already."""
+
+SPEAKER_MODES: tuple[SpeakerMode, ...] = get_args(SpeakerMode)
+
+
+@dataclass(frozen=True)
+class GroupChatSettings:
+    """How the 283 office's group chat goes (GLOSSARY.md「群聊」): whether it is open (open by
+    default), how many topics a day the characters open in it, how many turns each may run
+    at the most, and how who speaks is drawn; the admin console may override them all."""
+
+    enabled: bool = True
+    topics_per_day: int = DEFAULT_GROUP_TOPICS_PER_DAY
+    max_turns: int = DEFAULT_GROUP_MAX_TURNS
+    speaker_mode: SpeakerMode = "relation_weighted"
 
 
 @dataclass(frozen=True)

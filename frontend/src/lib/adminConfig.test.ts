@@ -521,7 +521,7 @@ describe("schedule", () => {
 });
 
 describe("cycles and the bar", () => {
-  it("are cards of limits and play: letters and moments after reach-outs, cycles and the bar after the schedule", () => {
+  it("are cards of limits and play: letters and moments after reach-outs, group chat after outings, cycles and the bar after the schedule", () => {
     expect(TAB_ITEMS.limits).toEqual([
       "limits",
       "affinity",
@@ -529,10 +529,38 @@ describe("cycles and the bar", () => {
       "letters",
       "moments",
       "outings",
+      "group_chat",
       "schedule",
       "cycles",
       "bar",
     ]);
+  });
+});
+
+describe("group chat", () => {
+  const spec = ITEM_SPECS.group_chat;
+
+  it("send the switch, how many topics a day, how many turns each and how who speaks is drawn", () => {
+    const form = formOf(spec, {
+      enabled: true,
+      topics_per_day: 3,
+      max_turns: 8,
+      speaker_mode: "relation_weighted",
+    });
+    expect(form).toEqual({
+      enabled: "true",
+      topics_per_day: "3",
+      max_turns: "8",
+      speaker_mode: "relation_weighted",
+    });
+    expect(changeOf(spec, { ...form, speaker_mode: "random" }, true)).toEqual({
+      change: { enabled: true, topics_per_day: 3, max_turns: 8, speaker_mode: "random" },
+    });
+    for (const bad of ["0", "", "1.5", "-1"]) {
+      expect(changeOf(spec, { ...form, max_turns: bad }, true), bad).toEqual({
+        problems: [{ field: "max_turns", reason: "positive" }],
+      });
+    }
   });
 });
 

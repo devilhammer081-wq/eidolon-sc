@@ -52,6 +52,8 @@ from eidolon.clock import Clock
 from eidolon.data_access import Database
 from eidolon.engine import BLANK, FAILED, MAX_INPUT_LENGTH, TOO_LONG
 from eidolon.group_turns import (
+    TO_ALL,
+    TO_HER,
     Candidate,
     SceneMaterial,
     mentioned_in,
@@ -228,10 +230,6 @@ ARRIVED = "（制作人和{party}一起来到{name}，大家都到了。）"
 
 SET_OFF = "（「{trigger}」发生了。）"
 """Where the user's words would be as a location event is written."""
-
-TO_HER = "制作人对{name}说：「{text}」，你回一句。"
-TO_ALL = "制作人对大家说：「{text}」，你也接一句。"
-"""How she comes to be speaking, by whether the producer named her."""
 
 OPENING_RULES = """# 开场
 制作人和几位偶像一起来到「这里的场景」写的地方，你替这个场景和她们写开场。

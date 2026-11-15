@@ -128,14 +128,15 @@ says how soon its first word came and at which reasoning effort."""
 
 RecordKind = Literal[
     "turn", "call", "reach_out", "achievement", "visit", "moment", "moment_reply", "letter",
-    "outing",
+    "outing", "group",
 ]
 """A reach-out is neither a turn nor a call, nor counted as one anywhere; it is always on the
 deployer's keys, as a moment is, and her reply to the producer's comment on one
 (`moment_reply`), and neither is either; nor is a letter she writes (`letter`). Nor is an
-achievement's stage unlocked or a character complete, which has no service calls; nor a
+achievement's stage unlocked or a character complete, which has no service calls; nor is a
 visit to the bar. Nor is the producer's walk on his own (`outing`), nor what the character he
-met on it opens with: both on the deployer's keys, as a moment is."""
+met on it opens with: both on the deployer's keys, as a moment is. Nor is one of his turns in
+the group chat (`group`): on the deployer's keys too."""
 OWN_LLM_KINDS: frozenset[RecordKind] = frozenset({"turn", "visit"})
 """The kinds whose record keeps, as being on the user's own keys, whether its LLM was the
 user's own; the others keep whether they were exempt."""

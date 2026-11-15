@@ -46,6 +46,11 @@ RELATION_STEP = 20
 her facts say she knows: friends of the speaker are likelier to get talking."""
 LABEL = "："
 """What separates a speaker's name from her words in a labelled line."""
+TO_HER = "制作人对{name}说：「{text}」，你回一句。"
+TO_ALL = "制作人对大家说：「{text}」，你也接一句。"
+"""How she comes to be speaking, by whether the producer named her: wherever several
+characters answer him — an outing's turn, the group chat's."""
+
 
 
 @dataclass(frozen=True)

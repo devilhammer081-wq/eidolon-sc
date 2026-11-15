@@ -36,6 +36,7 @@ from eidolon.live_config import (
     LETTERS,
     MOMENTS,
     OUTINGS,
+    GROUP_CHAT,
     PROXY,
     QWEATHER,
     REACH_OUTS,
@@ -240,6 +241,17 @@ class OutingsInput(BaseModel):
     responders_max: Any = None
 
 
+class GroupChatInput(BaseModel):
+    """How the 283 office's group chat goes: whether it is open, how many topics a day the
+    characters open in a user's chat, how many turns each may run at the most, and how who
+    speaks is drawn; each unchanged if not given, checked by the live configuration."""
+
+    enabled: Any = None
+    topics_per_day: Any = None
+    max_turns: Any = None
+    speaker_mode: Any = None
+
+
 class ScheduleInput(BaseModel):
     """Whether each week's jobs are published for producers to schedule, true or false;
     checked by the live configuration."""
@@ -321,6 +333,7 @@ INPUTS: dict[str, type[BaseModel]] = {
     LETTERS: LettersInput,
     MOMENTS: MomentsInput,
     OUTINGS: OutingsInput,
+    GROUP_CHAT: GroupChatInput,
     QWEATHER: QWeatherInput,
     SCHEDULE: ScheduleInput,
     CYCLES: CyclesInput,
@@ -339,7 +352,7 @@ def _change(item: str, body: BaseModel) -> dict[str, Any]:
     change = body.model_dump()
     for field in (
         "account_id", "workspace_id", "region", "map", "replies_per_day", "encounter_chance",
-        "responders_max",
+        "responders_max", "enabled", "topics_per_day", "max_turns", "speaker_mode",
     ):
         if change.get(field, "") is None:
             del change[field]

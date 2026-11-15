@@ -9,7 +9,8 @@ judge model and its thresholds,
 the reranker's thresholds, and the limits (per hour, per call, and the turns each prompt
 carries, with the exempting keys), whether affinity and gifts are on, whether characters
 reach out to users and how often at most (GLOSSARY.md「搭话」), how likely the producer out on
-his own is to meet a character (GLOSSARY.md「偶遇」), and which of the
+his own is to meet a character (GLOSSARY.md「偶遇」), how the 283 office's group chat goes
+(GLOSSARY.md「群聊」), and which of the
 deployer's services and of users' own keys go through which proxy (GLOSSARY.md「网络代理」), and
 which services users are shown the status of, over how long (GLOSSARY.md「服务状态」), and who
 may sign up (GLOSSARY.md「注册方式」). Overrides are
@@ -99,6 +100,10 @@ from eidolon.config import (
     MomentSettings,
     OutingSettings,
     ReachOutSettings,
+    GroupChatSettings,
+    DEFAULT_GROUP_MAX_TURNS,
+    DEFAULT_GROUP_TOPICS_PER_DAY,
+    SPEAKER_MODES,
     Registration,
     Service,
     ServiceName,
@@ -166,6 +171,7 @@ REACH_OUTS = "reach_outs"
 LETTERS = "letters"
 MOMENTS = "moments"
 OUTINGS = "outings"
+GROUP_CHAT = "group_chat"
 SCHEDULE = "schedule"
 CYCLES = "cycles"
 BAR = "bar"
@@ -887,6 +893,40 @@ class _Outings(_Item):
         return current | change
 
 
+class _GroupChat(_Item):
+    """How the 283 office's group chat goes (GLOSSARY.md「群聊」) — whether it is open (open by
+    default), how many topics a day the characters open in a user's chat, how many turns
+    each may run at the most, and how who speaks is drawn, uniformly or weighted by
+    affinity and relations; not tried."""
+
+    name = GROUP_CHAT
+    fields = ("enabled", "topics_per_day", "max_turns", "speaker_mode")
+
+    def env(self) -> Values:
+        return {
+            "enabled": True,
+            "topics_per_day": DEFAULT_GROUP_TOPICS_PER_DAY,
+            "max_turns": DEFAULT_GROUP_MAX_TURNS,
+            "speaker_mode": "relation_weighted",
+        }
+
+    def candidate(self, current: Values, change: Values) -> Values:
+        if "enabled" in change and not isinstance(change["enabled"], bool):
+            raise ConfigInvalid(f"群聊需要是 true 或 false，而不是 {change['enabled']!r}")
+        for field, named in (
+            ("topics_per_day", "每天开几个话题"), ("max_turns", "每个话题最多几回合"),
+        ):
+            value = change.get(field, current[field])
+            if isinstance(value, bool) or not isinstance(value, int) or value < 1:
+                raise ConfigInvalid(f"{named}需要是正整数，而不是 {value!r}")
+        mode = change.get("speaker_mode", current["speaker_mode"])
+        if mode not in SPEAKER_MODES:
+            raise ConfigInvalid(
+                f"选人方式只能是 {'、'.join(SPEAKER_MODES)} 之一，而不是 {mode!r}"
+            )
+        return current | change
+
+
 class _QWeather(_Item):
     """The deployer's QWeather account (和风天气), for where the producer is: its own API
     host, the developer's, the project's and the credential's ids, and the Ed25519 private
@@ -1181,7 +1221,7 @@ class LiveConfig:
                 # The proxy first: as the server starts, the services are tried through it.
                 _Proxy(self), _ChatLLM(self), _MemoryLLM(self), _TTS(self), _STT(self),
                 _Image(self), _GptImage(self), _Judge(self), _JudgeThresholds(self), _Rerank(self),
-                _Limits(self), _Affinity(self), _ReachOuts(self), _Letters(self), _Moments(self), _Outings(self), _QWeather(self), _Schedule(self),
+                _Limits(self), _Affinity(self), _ReachOuts(self), _Letters(self), _Moments(self), _Outings(self), _GroupChat(self), _QWeather(self), _Schedule(self),
                 _Cycles(self), _Bar(self), _ServiceStatus(self), _Registration(self),
             )
         }
@@ -1304,6 +1344,17 @@ class LiveConfig:
         his turns at the most."""
         values = self.effective(OUTINGS)
         return OutingSettings(values["encounter_chance"], values["responders_max"])
+
+    @property
+    def group_chat(self) -> GroupChatSettings:
+        """How the 283 office's group chat goes now (GLOSSARY.md「群聊」): whether it is
+        open, how many topics a day, how many turns each at the most, and how who speaks
+        is drawn."""
+        values = self.effective(GROUP_CHAT)
+        return GroupChatSettings(
+            values["enabled"], values["topics_per_day"], values["max_turns"],
+            values["speaker_mode"],
+        )
 
     @property
     def qweather_settings(self) -> QWeatherSettings | None:
