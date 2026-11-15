@@ -155,5 +155,8 @@ export {
 // 没发出来时的说明，和这一小时的照片用完时她那条回复后面的胶囊。
 export { Camera as PhotoIcon, CameraOff as PhotosUsedUpIcon, ImageOff as PhotoFailedIcon } from "lucide-react";
 
+// 输入栏左侧的「互动」键（GLOSSARY.md「互动动作」）：点开动作目录的菜单。
+export { Hand as InteractionIcon } from "lucide-react";
+
 // 导航栏底部（电脑）的 GitHub 仓库链接；品牌标志 Lucide 不收，是 The Library Icon Rule 的例外。
 export { GitHubIcon } from "./GitHubIcon";

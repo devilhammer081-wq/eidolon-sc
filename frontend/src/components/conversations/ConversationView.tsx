@@ -76,6 +76,7 @@ import { AchievementsPanel } from "./AchievementsPanel";
 import { AffinityBadge, CueArrowIcon } from "./AffinityBadge";
 import { CallBar } from "./CallBar";
 import { EVENT_ICONS } from "./EventIcon";
+import { InteractionMenu } from "./InteractionMenu";
 import { LiveCallLayer } from "./CallLayer";
 import { OutfitPicker } from "./OutfitPicker";
 import { PastConversations } from "./PastConversations";
@@ -89,6 +90,7 @@ import { useProducerTimezone } from "./useProducerTimezone";
 import { readAloudFor, useCanReadAloud } from "./useReadAloud";
 import { useScheduleOn } from "./useScheduleOn";
 import { useStandOutfits } from "./useStandOutfits";
+import { useInteractions } from "./useInteractions";
 
 const t = copy.conversation;
 
@@ -101,6 +103,8 @@ const noSubscription = () => () => {};
  * 整个子树注入她的颜色（herVars），浮层（更多菜单）的 container 指回这棵子树。
  *
  * 她写过信时，电话键左边一个信封键（GLOSSARY.md「信」，`HerLetterButton`），点开是她的信。
+ * 输入栏左侧是「互动」键（GLOSSARY.md「互动动作」，`InteractionMenu`）：点开动作目录，选一个就把它作为
+ * 一条回合发出去，消息流里是一条居中的轻量胶囊（如「🤚 摸摸头」），她的回复仍是普通气泡。
  * 页首的电话键打开通话层并开始呼叫（spec「通话层」）；通话层可以收起回到这里，页首下面出现通话条，
  * 电话键变成实心的「回到通话」。对话的实时状态（连同通话）由导航外壳持有（ADR-0018）：这一页打开时向外壳要她那一份，
  * 离开时交回；通话中离开这一页，通话留在外壳里，回来时一切照旧。她的声音、电话本身的声音和切换麦克风的面板也在外壳里。
@@ -391,6 +395,8 @@ export function ConversationView({
       {/* 失败的原因（没登录时带去登录的入口）；通话层盖着时整栏 inert，Tab 摸不到 */}
       {failure && <FailureNotice failure={{ ...failure, message: failureText(failure) }} />}
       <div className="flex items-end gap-2">
+        {/* 「互动」键（GLOSSARY.md「互动动作」）：点开动作目录，选一个就把它作为一条回合发出去 */}
+        <InteractionMenu subtree={subtree} disabled={!isOpen} onPick={(id) => void live?.sendInteraction(id)} />
         <Textarea
           variant="composer"
           rows={1}
@@ -661,6 +667,8 @@ function Messages({
   reading: Reading | null;
 }) {
   const lines = linesOf(entries, new Date(), affinityOn);
+  // 互动动作的目录（GLOSSARY.md「互动动作」）：消息流里一条动作按它的 id 找 emoji 和名字。
+  const interactionOf = new Map((useInteractions() ?? []).map((a) => [a.id, a]));
   // 键盘停在她最后一条能朗读的话上（`ReadAloudMenu`）。
   const tabStop = reading?.canRead ? entries.findLast((e) => herLineIn(reading, e))?.key : undefined;
   return (
@@ -689,6 +697,19 @@ function Messages({
                   <Capsule>
                     <PhotosUsedUpIcon aria-hidden className="size-3" />
                     {photosUsedUpText(line.retryAt, timeZone)}
+                  </Capsule>
+                </MessageScrollerItem>
+              ) : line.entry.kind === "user" && line.entry.interactionId ? (
+                // 一条互动动作（GLOSSARY.md「互动动作」）：居中的轻量胶囊（如「🤚 摸摸头」），不成气泡；
+                // 目录还没读到时先写后端给的那句叙述行，读到了（或目录里没有了）也一样。
+                <MessageScrollerItem key={line.entry.key} messageId={line.entry.key} className="my-2 flex justify-center">
+                  <Capsule>
+                    {(() => {
+                      const action = interactionOf.get(line.entry.interactionId);
+                      return action
+                        ? copy.conversation.interactions.capsule(action.emoji, action.name)
+                        : line.entry.text || copy.conversation.interactions.menu;
+                    })()}
                   </Capsule>
                 </MessageScrollerItem>
               ) : line.entry.kind === "event" ? (

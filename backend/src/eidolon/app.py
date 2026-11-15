@@ -36,6 +36,7 @@ from eidolon.greetings import (
     greeting_path,
     voxels_path,
 )
+from eidolon import interactions
 from eidolon.read_aloud import NoVoice, ReadAloudFailed
 from eidolon.reply_format import Segment, SegmentComplete, SegmentDelta, SpeechDelta
 from eidolon.own_keys import (
@@ -122,7 +123,9 @@ class NewConversation(BaseModel):
 
 
 class TurnInput(BaseModel):
-    text: str
+    text: str = ""
+    """What the user says; blank where the turn only takes an interaction action, whose
+    own line plays as its words."""
     own_keys: OwnKeysInput | None = None
     """The user's own keys, which their browser keeps, for the turn to run on; the shape
     calls bring too. A turn uses only the LLMs and image generation, voice keys brought
@@ -135,6 +138,9 @@ class TurnInput(BaseModel):
     """The model of the user's own key for speech synthesis, where their browser keeps one,
     but not the key: her reply is written with delivery cues as the model it would be read
     aloud with reads them (GLOSSARY.md「朗读」), the deployer's without it."""
+    interaction_id: str | None = None
+    """The interaction action (GLOSSARY.md「互动动作」) the turn takes, if it takes one;
+    an id not in the catalog is rejected (422)."""
 
 
 class ReadAloudInput(BaseModel):
@@ -610,6 +616,13 @@ def create_app(backend: Backend) -> FastAPI:
         status = await backend.affinities.status(user_id, character_id)
         return status and status.shown()
 
+    @app.get("/api/interactions")
+    async def list_interactions() -> list[dict]:
+        """The interaction actions (GLOSSARY.md「互动动作」) the user may take, with the
+        tier each is meant for, that the menu may say it too; any is offered at any
+        tier."""
+        return interactions.shown()
+
     @app.get("/api/memories")
     async def list_memories(user_id: UserId) -> list[dict]:
         """Newest first, each with the name of the character it was told to and whether
@@ -699,6 +712,12 @@ def create_app(backend: Backend) -> FastAPI:
         conversation = await conversation_or_404(conversation_id, user_id)
         if body.own_llm is not None:  # transitional: see `TurnInput.own_llm`
             raise HTTPException(422, "页面已经更新，请刷新后再发")
+        interaction = (
+            interactions.BY_ID.get(body.interaction_id) if body.interaction_id else None
+        )
+        if body.interaction_id and interaction is None:
+            raise HTTPException(422, "没有这个互动")
+        text = body.text or (interaction.acted if interaction else "")
         brought = body.own_keys.brought() if body.own_keys else BroughtKeys()
         # Cancelled meanwhile, what is let in never runs, so is settled as left.
         admission = await admissions.admitted(
@@ -714,9 +733,9 @@ def create_app(backend: Backend) -> FastAPI:
             # has gone (`Store.taking_turn`).
             async with outcome.running():
                 async with aclosing(engine.turn(
-                    conversation, body.text, admission.llms, device_timezone,
+                    conversation, text, admission.llms, device_timezone,
                     voiced_by=backend.own_keys.read_aloud_model(body.read_aloud_model),
-                    own_image=brought.image,
+                    own_image=brought.image, interaction=interaction,
                 )) as turn:
                     async for event in turn:
                         outcome.see(event)

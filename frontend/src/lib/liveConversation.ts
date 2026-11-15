@@ -311,7 +311,7 @@ export type Ports = {
     preferences: CallPreferences,
     handlers: CallHandlers,
   ) => Promise<Call>;
-  sendTurn: (conversationId: string, text: string) => AsyncIterable<TurnEvent>;
+  sendTurn: (conversationId: string, text: string, interactionId?: string) => AsyncIterable<TurnEvent>;
   /** How a photo she sent is coming along. */
   getPhoto: (id: string) => Promise<PhotoStatus>;
   /** Her affinity with the user now; null while affinity is off. */
@@ -462,11 +462,37 @@ export class LiveConversation {
       return;
     }
     this.apply({ type: "submitted", text, at: this.isoNow() }, { busy: true });
+    await this.runTurn(conversationId, { text });
+  }
 
+  /**
+   * Take an interaction action (GLOSSARY.md「互动动作」) as a turn of its own: no words are
+   * sent, the backend plays the action's own line as the user's, so the input box is left
+   * as it is. She answers as the streaming protocol has her answer a typed turn.
+   */
+  async sendInteraction(interactionId: string): Promise<void> {
+    const conversationId = this.openConversationId();
+    if (!conversationId || this.state.busy || this.state.call.phase === "dialing") return;
+    if (isCooling(this.state) || isEnded(this.state)) return;
+    this.update({ failure: null });
+    this.apply({ type: "submitted", text: "", at: this.isoNow(), interactionId }, { busy: true });
+    await this.runTurn(conversationId, { text: "", interactionId });
+  }
+
+  /**
+   * Run the turn just applied to the log (`sent`, its text or its interaction action)
+   * through to its record or its failure: the looking-ups, the streaming reply, its end.
+   * Should it fail — refused, cut off — it leaves no record: it is taken back off the log,
+   * and the turn's words, if it had any of its own, are returned to the input box.
+   */
+  private async runTurn(
+    conversationId: string,
+    sent: { text: string; interactionId?: string },
+  ): Promise<void> {
     let failure: Failure | null = null;
     let done = false;
     try {
-      for await (const event of this.ports.sendTurn(conversationId, text)) {
+      for await (const event of this.ports.sendTurn(conversationId, sent.text, sent.interactionId)) {
         if (event.type === "looking-up") {
           this.update({ lookingUp: event.what });
           continue;
@@ -482,7 +508,10 @@ export class LiveConversation {
     } catch (e) {
       if (e instanceof ApiError && e.cooldownUntil !== null) {
         // Refused for a cooldown begun elsewhere: shown as one, the text kept for when it ends.
-        this.apply({ type: "interrupted" }, { draft: text, busy: false });
+        this.apply(
+          { type: "interrupted" },
+          { ...(sent.text ? { draft: sent.text } : {}), busy: false },
+        );
         this.cooled(e.cooldownUntil);
         return;
       }
@@ -491,8 +520,12 @@ export class LiveConversation {
       if (e instanceof ApiError) failure.countsTowardLimit = false;
     }
     if (failure) {
-      // A failed turn is not recorded: take it back off the log and return the text to the input.
-      this.apply({ type: "interrupted" }, { draft: text, failure });
+      // A failed turn is not recorded: take it back off the log and return the words, if it
+      // had any of its own, to the input.
+      this.apply(
+        { type: "interrupted" },
+        { ...(sent.text ? { draft: sent.text } : {}), failure },
+      );
     }
     this.update({ busy: false, lookingUp: null });
   }
