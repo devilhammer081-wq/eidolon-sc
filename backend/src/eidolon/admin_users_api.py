@@ -16,7 +16,8 @@ out; the deployer can still on the command line.
 
 An admin may also set a user's own limits on turns, calls, photos, visits to the bar and
 read-alouds an hour, each apart, or take them off; the length of a call is the same for
-everyone.
+everyone. They may give one user draw chances as a compensation, over the most kept each
+day; what the user has now is not shown to them, as the admin console shows no one's gifts.
 
 How much a user has used the deployment lately is from the activity records (not the
 `usage` table, the limit's sliding hour): the list shows how many turns and calls each
@@ -38,6 +39,7 @@ from eidolon.accounts import signs_in_as_admin
 from eidolon.activity import ActivityLog, RecordRow
 from eidolon.admin_api import Admin
 from eidolon.assembly import Backend
+from eidolon.gifts import MAX_GRANTED_DRAWS, GiftsClosed
 from eidolon.store import NotFound, SignInMethod, User
 from eidolon.usage import UserLimits
 
@@ -62,6 +64,13 @@ class BanInput(BaseModel):
 
 
 Limit = Annotated[int, Field(ge=0, le=100_000)] | Literal["unlimited"] | None
+
+
+class DrawsInput(BaseModel):
+    """How many draw chances to give one user, as a compensation: one or more, over the
+    most kept each day."""
+
+    count: int = Field(ge=1, le=MAX_GRANTED_DRAWS)
 
 
 class LimitsInput(BaseModel):
@@ -219,3 +228,14 @@ def add_admin_user_routes(app: FastAPI, backend: Backend) -> None:
         await details(user_id)
         await limiter.set_user_limits(user_id, None)
         return await details(user_id)
+
+    @app.post("/api/admin/users/{user_id}/draws")
+    async def grant_draws(user_id: str, body: DrawsInput, _: Admin) -> dict:
+        """Give the user `count` draw chances, over the most kept each day, as a
+        compensation; 409 while affinity and gifts are off."""
+        await details(user_id)
+        try:
+            grant = await backend.gifts.grant_draws(user_id, body.count)
+        except GiftsClosed as e:
+            raise HTTPException(409, str(e)) from None
+        return grant.shown()

@@ -229,6 +229,20 @@ export async function unbanUser(id: string): Promise<AdminUserDetails> {
   return json(await api(`/api/admin/users/${encodeURIComponent(id)}/ban`, { method: "DELETE" }));
 }
 
+/** Draw chances an admin gave one user: when, and how many. The backend shows no balance. */
+export type AdminDrawGrant = { granted_at: string; count: number };
+
+/** Give the user draw chances, over the most kept each day, as a compensation. */
+export async function grantUserDraws(id: string, count: number): Promise<AdminDrawGrant> {
+  return json(
+    await api(`/api/admin/users/${encodeURIComponent(id)}/draws`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ count }),
+    }),
+  );
+}
+
 /** Set the user's own limits, replacing those they had, from their next turn or call on. */
 export async function setUserLimits(
   id: string,

@@ -11,6 +11,7 @@ import { MetadataList, MetadataListItem } from "@/components/app/admin/MetadataL
 import { Timestamp } from "@/components/app/admin/Timestamp";
 import { AdminBadge, BanStatus, UserLimits } from "@/components/AdminUserList";
 import { BanUserDialog } from "@/components/BanUserDialog";
+import { GrantDrawsDialog } from "@/components/GrantDrawsDialog";
 import { UserLimitsDialog } from "@/components/UserLimitsDialog";
 import {
   AlertDialog,
@@ -71,10 +72,16 @@ export function AdminUserDetails({ id }: { id: string }) {
   const [deleting, setDeleting] = useState(false);
   const [editingLimits, setEditingLimits] = useState(false);
   const [takingOffLimits, setTakingOffLimits] = useState(false);
+  const [grantingDraws, setGrantingDraws] = useState(false);
+  const [drawNotice, setDrawNotice] = useState<string | null>(null);
   const router = useRouter();
 
   useEffect(() => {
     getAdminUser(id).then(setUser, (e) => setFailure(toFailure(e)));
+  }, [id]);
+
+  useEffect(() => {
+    setDrawNotice(null);
   }, [id]);
 
   async function unban() {
@@ -165,6 +172,11 @@ export function AdminUserDetails({ id }: { id: string }) {
       }
     >
       {failure && <FailureNotice failure={failure} />}
+      {drawNotice && (
+        <p role="status" className="text-sm text-muted-foreground">
+          {drawNotice}
+        </p>
+      )}
 
       <Card>
         <CardHeader>
@@ -252,6 +264,9 @@ export function AdminUserDetails({ id }: { id: string }) {
               {t.limits.takeOff}
             </Button>
           )}
+          <Button variant="outline" size="sm" onClick={() => setGrantingDraws(true)}>
+            {t.draws.action}
+          </Button>
         </CardFooter>
       </Card>
 
@@ -297,6 +312,15 @@ export function AdminUserDetails({ id }: { id: string }) {
         onSaved={(saved) => {
           setEditingLimits(false);
           setUser(saved);
+        }}
+      />
+
+      <GrantDrawsDialog
+        user={grantingDraws ? user : null}
+        onClose={() => setGrantingDraws(false)}
+        onGranted={(grant) => {
+          setGrantingDraws(false);
+          setDrawNotice(t.draws.granted(grant.count));
         }}
       />
 
