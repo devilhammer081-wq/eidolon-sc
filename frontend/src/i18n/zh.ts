@@ -2047,6 +2047,25 @@ export const zh = {
       },
     },
   },
+  /** 群聊页（GLOSSARY.md「群聊」）：283事务所。 */
+  group: {
+    title: "283事务所",
+    /** 对话列表顶上的入口。 */
+    entry: {
+      name: "283事务所",
+      hint: "制作人和偶像们的群聊",
+      /** 有角色说过话而制作人还没读过时，入口上的点。 */
+      unseen: "群聊，有没看过的话",
+    },
+    inputPlaceholder: "说点什么，@名字只让她回应",
+    send: "发送",
+    loadFailed: "群聊没有读到，刷新再试",
+    turnFailed: "这句话没有送到，再试一次",
+    /** 部署者关掉群聊时。 */
+    closed: "群聊没有开放",
+    loading: "正在读群聊",
+  },
+
   /** 外出页（GLOSSARY.md「外出」）：入口、发起向导和历史。 */
   outings: {
     title: "外出",

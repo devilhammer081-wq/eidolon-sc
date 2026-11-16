@@ -46,6 +46,7 @@ export function isInShell(href: string): boolean {
   return (
     path === "/conversations" ||
     conversationOf(path) !== null ||
+    path === GROUP ||
     path === MOMENTS ||
     path === OUTINGS_ROOT ||
     /^\/outings\/[^/]+\/?$/.test(path) ||
@@ -82,6 +83,10 @@ export function departure(href: string, callee: string | null): Departure {
 
 /** The moments (GLOSSARY.md「朋友圈」): a first level of its own, with no second. */
 const MOMENTS = "/moments";
+
+/** The 283 office's group chat (GLOSSARY.md「群聊」): under the conversations item, a
+ * first level of its own. */
+const GROUP = "/group";
 
 /** The outings (GLOSSARY.md「外出」): `/outings` is its first level, `/outings/<id>` one
  * outing of the user's, under way or over, its second. */

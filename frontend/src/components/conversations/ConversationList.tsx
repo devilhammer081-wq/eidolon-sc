@@ -24,6 +24,7 @@ import { Announcements } from "./Announcements";
 import { PreviewText } from "./PreviewText";
 import { ServiceStatusButton } from "./ServiceStatusButton";
 import { useDirectory, type CallInList } from "./ConversationDirectory";
+import { GroupEntry } from "@/components/group/GroupEntry";
 import { ListFilter } from "./ListFilter";
 import { useCallTime } from "./useCallTime";
 
@@ -108,6 +109,7 @@ export function ConversationList({ selectedId }: { selectedId: string | null }) 
           <p className="px-4 py-6 text-center text-preview text-muted-foreground">{t.noMatch}</p>
         ) : (
           <>
+            <GroupEntry />
             <ul aria-label={t.title}>
               {shown.rows.map((row) => {
                 const c = row.character;

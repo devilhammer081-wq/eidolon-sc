@@ -1264,3 +1264,70 @@ export type OutingTurnEvent =
   | { type: "delta"; speaker: string; text: string }
   | { type: "done"; messages: OutingMessage[] }
   | { type: "error"; message: string };
+
+// 群聊（GLOSSARY.md「群聊」）：283事务所。
+
+/** One line of the group chat: who said it with her name and colour (null for the
+ * producer), which kind of line it is (something said, a topic's opening or ending), what
+ * it says and when. */
+export type GroupLine = {
+  id: number;
+  speaker: string | null;
+  speaker_name: string | null;
+  color: string | null;
+  kind: "say" | "topic_open" | "topic_end";
+  text: string;
+  created_at: string;
+};
+
+/** The topic underway in the group chat, null while none is. */
+export type GroupTopic = {
+  opener: string;
+  opener_name: string | null;
+  spoken: string[];
+  turns: number;
+};
+
+/** The producer's group chat: its latest lines, the topic underway, and whether anything
+ * was unread before this reading (which counts as read). Reading it is also what brings
+ * the characters' topics up to now. */
+export async function readGroup(): Promise<{
+  messages: GroupLine[];
+  topic: GroupTopic | null;
+  unseen: boolean;
+}> {
+  return json<{ messages: GroupLine[]; topic: GroupTopic | null; unseen: boolean }>(
+    await api("/api/group"),
+  );
+}
+
+/** Whether anything was said in the group chat since the producer last read it, without
+ * reading it now: for its entry on the conversation list. 409 while closed → false. */
+export async function groupUnseen(): Promise<boolean> {
+  try {
+    return (await json<{ unseen: boolean }>(await api("/api/group/unseen"))).unseen;
+  } catch (e) {
+    if (e instanceof ApiError && e.status === 409) return false;
+    throw e;
+  }
+}
+
+/** One turn of the producer in the group chat: what he said, who replies and her words as
+ * they come, the lines kept, or why it failed — the same server-sent events an outing
+ * turn streams, with the speaker named before her deltas. */
+export type GroupTurnEvent =
+  | { type: "user"; text: string }
+  | { type: "speaker"; character_id: string; name: string; color: string | null }
+  | { type: "delta"; speaker: string; text: string }
+  | { type: "done"; messages: GroupLine[] }
+  | { type: "error"; message: string };
+
+/** Say something in the group chat, its events streamed as they come. */
+export async function* sendGroupTurn(text: string): AsyncGenerator<GroupTurnEvent> {
+  const res = await api("/api/group/turns", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ text }),
+  });
+  yield* serverSentEvents<GroupTurnEvent>(res);
+}
