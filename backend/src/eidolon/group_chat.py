@@ -25,7 +25,7 @@ import sqlite3
 from collections.abc import AsyncIterator, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
 from zoneinfo import ZoneInfo
 
 from eidolon.activity import ActivityLog
@@ -49,6 +49,9 @@ from eidolon.producer import ProducerProfile, effective_timezone, local_date
 from eidolon.randomness import Random
 from eidolon.store import Store
 from eidolon.world import World
+
+if TYPE_CHECKING:
+    from eidolon.group_topics import GroupTopics
 
 log = logging.getLogger(__name__)
 
@@ -183,6 +186,11 @@ class GroupChats:
         it; whether anyone ever has, if he never has. His own lines are never unread."""
         return await self._db.read(_unread, user_id)
 
+    async def topics_opened(self, user_id: str, since: str) -> int:
+        """How many topics have been opened in the user's chat since `since` (as the tables
+        keep times): the day's quota counted from it."""
+        return await self._db.read(_topics_opened, user_id, since)
+
 
 @dataclass(frozen=True)
 class ProducerSaid:
@@ -262,6 +270,7 @@ class GroupChat:
         clock: Clock,
         random: Random,
         world: World | None = None,
+        topics: "GroupTopics | None" = None,
     ) -> None:
         self.chats = chats
         self._store = store
@@ -272,6 +281,7 @@ class GroupChat:
         self._clock = clock
         self._random = random
         self._world = world
+        self._topics = topics
 
     def require_on(self) -> None:
         """GroupChatOff unless the deployer has the group chat open."""
@@ -282,6 +292,11 @@ class GroupChat:
         """The user's chat as the timeline page takes it, the producer counted as reading
         it now; GroupChatOff while the deployer has it closed."""
         self.require_on()
+        # What the characters have been saying among themselves is brought up to now
+        # before it is read (group_topics), that the timeline the producer opens is the
+        # chat as it stands — and what came with it unread.
+        if self._topics is not None:
+            await self._topics.catch_up(user_id)
         unread = await self.chats.unread(user_id)
         messages = await self.chats.timeline(user_id)
         topic = (await self.chats.state(user_id)).topic
@@ -530,6 +545,15 @@ def _unread(db: sqlite3.Connection, user_id: str) -> bool:
         " AND created_at > ? LIMIT 1",
         (user_id, read_at),
     ).fetchone() is not None
+
+
+def _topics_opened(db: sqlite3.Connection, user_id: str, since: str) -> int:
+    [(count,)] = db.execute(
+        "SELECT COUNT(*) FROM group_messages WHERE user_id = ? AND kind = 'topic_open'"
+        " AND created_at >= ?",
+        (user_id, since),
+    ).fetchall()
+    return count
 
 
 def _uniform(

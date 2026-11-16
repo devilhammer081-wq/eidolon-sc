@@ -48,6 +48,7 @@ from eidolon.drink_catalog import check_bar_tastes, drinks_path, load_drink_cata
 from eidolon.gift_catalog import Gift, check_liked_gifts, gifts_path, load_gift_catalog
 from eidolon.gifts import Gifts
 from eidolon.group_chat import GroupChat, GroupChats
+from eidolon.group_topics import GroupTopics
 from eidolon.group_outings import GroupOutings
 from eidolon.happenings import Happenings
 from eidolon.her_now import HerNow
@@ -529,12 +530,16 @@ def build(
         random or secure_random, world,
     )
     group_outings = GroupOutings(
-        database, store, outings, outing_catalog, characters, config, affinities, memories,
-        activity, clock, random or secure_random, world,
+        database, store, outings, outing_catalog, characters, config, affinities,
+        activity, clock, random or secure_random, gifts, gift_catalog, world=world,
+    )
+    group_topics = GroupTopics(
+        GroupChats(database), store, characters, config, affinities, activity, clock,
+        random or secure_random, world,
     )
     group_chat = GroupChat(
         GroupChats(database), store, characters, config, affinities, activity, clock,
-        random or secure_random, world,
+        random or secure_random, world, group_topics,
     )
     config.on_change(gifts.notice)
     return Backend(
