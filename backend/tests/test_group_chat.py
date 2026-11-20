@@ -459,3 +459,23 @@ async def test_a_closed_chat_refuses_to_be_read_or_spoken_in(
     chats = backend_of(client).group_chat.chats
     producer = await the_producer(client)
     assert len(await chats.timeline(producer)) == 2  # and nothing new was kept
+
+
+async def test_her_line_keeps_its_original_beside_its_subtitle(make_client: ClientFactory):
+    """按回复格式说的话：中文做正文，日语原文带字幕留在这行的 segments 里。"""
+    llm = FakeLLM(["<ja>こんにちは！</ja><zh>大家好！</zh>"])
+    client = make_client(llm, clock=FakeClock(), random=FakeRandom(0, 49))
+    await seed(client)
+
+    events = await turn(client, "大家晚上好")
+
+    kept = next(e for e in events if e["type"] == "done")["messages"]
+    [hers] = [line for line in kept if line["speaker"] is not None]
+    assert hers["text"] == "大家好！"
+    assert hers["segments"] == [{"ja": "こんにちは！", "zh": "大家好！"}]
+    read_back = (await client.get("/api/group")).json()["messages"]
+    [again] = [
+        line for line in read_back
+        if line["kind"] == "say" and line["speaker"] == hers["speaker"]
+    ]
+    assert again["segments"] == hers["segments"]

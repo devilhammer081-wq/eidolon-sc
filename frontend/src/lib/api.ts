@@ -1269,7 +1269,8 @@ export type OutingTurnEvent =
 
 /** One line of the group chat: who said it with her name and colour (null for the
  * producer), which kind of line it is (something said, a topic's opening or ending), what
- * it says and when. */
+ * it says and when, and her Japanese original with its Chinese subtitle where she said it
+ * in the reply format (null for the lines that have none). */
 export type GroupLine = {
   id: number;
   speaker: string | null;
@@ -1277,6 +1278,7 @@ export type GroupLine = {
   color: string | null;
   kind: "say" | "topic_open" | "topic_end";
   text: string;
+  segments: { ja: string; zh: string | null }[] | null;
   created_at: string;
 };
 

@@ -21,6 +21,7 @@ characters carrying it on, is the topic scheduler's (`group_topics`), not the ch
 
 import json
 import logging
+import re
 import sqlite3
 from collections.abc import AsyncIterator, Mapping, Sequence
 from dataclasses import dataclass, field
@@ -34,6 +35,7 @@ from eidolon.characters import Character
 from eidolon.clock import Clock
 from eidolon.data_access import Database
 from eidolon.engine import BLANK, FAILED, MAX_INPUT_LENGTH, TOO_LONG
+from eidolon.reply_format import Segment, parse_said
 from eidolon.group_turns import (
     TO_ALL,
     TO_HER,
@@ -76,12 +78,16 @@ Schema = """
 -- One row per line of a user's group chat (GLOSSARY.md「群聊」), in the order said: who
 -- said it (a character id; NULL for no one, which a character's lines never are — the
 -- producer's, and, for a topic's ending, the ending itself), which kind of line it is
--- (something said, a topic's opening, its ending), what it says and when.
+-- (something said, a topic's opening, its ending), what it says and when. A character's
+-- line is said in the reply format, Japanese with its Chinese subtitle: the original is
+-- kept beside what it says (a JSON array of {"ja", "zh"}; NULL for the lines that have
+-- none — the producer's, and a topic's ending).
 CREATE TABLE IF NOT EXISTS group_messages (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id TEXT NOT NULL REFERENCES users(id),
     speaker TEXT,
     text TEXT NOT NULL,
+    segments TEXT,
     kind TEXT NOT NULL CHECK (kind IN ('say', 'topic_open', 'topic_end')),
     created_at TEXT NOT NULL
 );
@@ -108,7 +114,9 @@ class GroupChatOff(Exception):
 
 @dataclass(frozen=True)
 class Message:
-    """One line of the chat: who said it, which kind of line it is, what it says, when."""
+    """One line of the chat: who said it, which kind of line it is, what it says, when;
+    her Japanese original with its Chinese subtitle, where she said it in the reply format
+    (`segments`; a line without it — the producer's, a topic's ending — has none)."""
 
     id: int
     user_id: str
@@ -118,6 +126,7 @@ class Message:
     kind: MessageKind
     text: str
     created_at: datetime
+    segments: tuple[Segment, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -149,20 +158,36 @@ class GroupChats:
         db.prepare(_prepare)
 
     async def say(
-        self, user_id: str, text: str, now: datetime, speaker: str | None = None
+        self,
+        user_id: str,
+        text: str,
+        now: datetime,
+        speaker: str | None = None,
+        segments: Sequence[Segment] = (),
     ) -> Message:
         """A line of the user's chat kept `now`: `speaker` whoever said it (None for the
-        producer). A character's line takes a turn of the topic underway, if one stands;
-        with none underway it is kept all the same."""
-        return await self._db.write(_say, user_id, text, speaker, _utc(now))
+        producer), her Japanese original with its Chinese subtitle where she said it in
+        the reply format (`segments`). A character's line takes a turn of the topic
+        underway, if one stands; with none underway it is kept all the same."""
+        return await self._db.write(
+            _say, user_id, text, speaker, _utc(now), list(segments)
+        )
 
     async def open_topic(
-        self, user_id: str, opener: str, text: str, now: datetime
+        self,
+        user_id: str,
+        opener: str,
+        text: str,
+        now: datetime,
+        segments: Sequence[Segment] = (),
     ) -> Message:
-        """The character `opener`'s new topic: its opening line kept `now`, the topic
-        underway from it — she the first to have spoken, its first turn taken. Only one
-        topic stands at a time: ValueError while one does."""
-        return await self._db.write(_open_topic, user_id, opener, text, _utc(now))
+        """The character `opener`'s new topic: its opening line kept `now` (her Japanese
+        original with its Chinese subtitle where she said it in the reply format,
+        `segments`), the topic underway from it — she the first to have spoken, its first
+        turn taken. Only one topic stands at a time: ValueError while one does."""
+        return await self._db.write(
+            _open_topic, user_id, opener, text, _utc(now), list(segments)
+        )
 
     async def end_topic(self, user_id: str, text: str, now: datetime) -> Message:
         """The topic's closing line kept `now` (no one's words: not the producer's), no
@@ -333,7 +358,7 @@ class GroupChat:
         now = self._clock()
         recording = self._activity.begin("group", user_id, "", own_llm=False, exempt=False)
         lease = self._config.lease()
-        said: list[tuple[str, str]] = []
+        said: list[tuple[str, str, tuple[Segment, ...]]] = []
         try:
             with recording.current():
                 for each in responders:
@@ -353,20 +378,23 @@ class GroupChat:
                             ),
                         ),
                         each, profile, self._world_prompt(each, profile, now),
+                        subtitled=True,
                     )):
                         if isinstance(chunk, str):
                             chunks.append(chunk)
                             yield LineDelta(each.character.id, chunk)
-                    line = "".join(chunks).strip()
-                    if not line:
+                    spoken, segments = _kept("".join(chunks))
+                    if not spoken:
                         raise RuntimeError("the model wrote nothing")
-                    said.append((each.character.id, line))
-                    so_far.append((each.character.name, line))
+                    said.append((each.character.id, spoken, segments))
+                    so_far.append((each.character.name, spoken))
             kept = [
                 await self.chats.say(user_id, text, now),
                 *[
-                    await self.chats.say(user_id, line, now, speaker=speaker)
-                    for speaker, line in said
+                    await self.chats.say(
+                        user_id, spoken, now, speaker=speaker, segments=segments
+                    )
+                    for speaker, spoken, segments in said
                 ],
             ]
             await self.chats.mark_read(user_id, now)
@@ -423,6 +451,45 @@ class GroupChat:
 
 def _prepare(db: sqlite3.Connection) -> None:
     db.executescript(Schema)
+    columns = {row[1] for row in db.execute("PRAGMA table_info(group_messages)")}
+    if "segments" not in columns:
+        db.execute("ALTER TABLE group_messages ADD COLUMN segments TEXT")
+
+
+TO_TAG = re.compile(r"<to>(.*?)</to>", re.DOTALL)
+"""Whom a line is addressed to, as the speaker wrote it: not part of what she said."""
+
+
+def _kept(written: str) -> tuple[str, tuple[Segment, ...]]:
+    """One of her lines as the chat keeps it: its Chinese subtitle, and its Japanese
+    original with that subtitle where she wrote it in the reply format (an outing's line
+    is kept the same way). A `<to>` tag is not part of what she said and is left out;
+    plain text — a line the model wrote without the tags — is kept as it is."""
+    written = re.sub(TO_TAG, "", written).strip()
+    segments = parse_said(written)
+    if segments is None:
+        return written, ()
+    joined = "\n".join(segment.zh or segment.ja for segment in segments)
+    return joined, tuple(segments)
+
+
+def _segments_json(segments: Sequence[Segment]) -> str | None:
+    """`segments` as the table keeps them; NULL for a line that has none."""
+    if not segments:
+        return None
+    return json.dumps(
+        [{"ja": segment.ja, "zh": segment.zh} for segment in segments],
+        ensure_ascii=False,
+    )
+
+
+def _segments_of(kept: str | None) -> tuple[Segment, ...]:
+    """The segments as the table kept them, empty for a line that has none."""
+    if not kept:
+        return ()
+    return tuple(
+        Segment(each.get("ja", ""), each.get("zh")) for each in json.loads(kept)
+    )
 
 
 def _utc(at: datetime) -> str:
@@ -432,24 +499,26 @@ def _utc(at: datetime) -> str:
 
 def _line_of(
     db: sqlite3.Connection, user_id: str, kind: MessageKind, text: str,
-    speaker: str | None, created_at: str,
+    speaker: str | None, created_at: str, segments: Sequence[Segment] = (),
 ) -> Message:
     """A line kept in the user's chat, as it comes back."""
     cursor = db.execute(
-        "INSERT INTO group_messages (user_id, speaker, text, kind, created_at)"
-        " VALUES (?, ?, ?, ?, ?)",
-        (user_id, speaker, text, kind, created_at),
+        "INSERT INTO group_messages (user_id, speaker, text, segments, kind, created_at)"
+        " VALUES (?, ?, ?, ?, ?, ?)",
+        (user_id, speaker, text, _segments_json(segments), kind, created_at),
     )
     assert cursor.lastrowid is not None
     return Message(
-        cursor.lastrowid, user_id, speaker, kind, text, datetime.fromisoformat(created_at)
+        cursor.lastrowid, user_id, speaker, kind, text,
+        datetime.fromisoformat(created_at), tuple(segments),
     )
 
 
 def _say(
-    db: sqlite3.Connection, user_id: str, text: str, speaker: str | None, created_at: str
+    db: sqlite3.Connection, user_id: str, text: str, speaker: str | None,
+    created_at: str, segments: Sequence[Segment],
 ) -> Message:
-    kept = _line_of(db, user_id, "say", text, speaker, created_at)
+    kept = _line_of(db, user_id, "say", text, speaker, created_at, segments)
     if speaker is not None:  # her line takes a turn of the topic underway, if one stands
         row = db.execute(
             "SELECT spoken FROM group_state WHERE user_id = ? AND opener IS NOT NULL",
@@ -464,14 +533,15 @@ def _say(
 
 
 def _open_topic(
-    db: sqlite3.Connection, user_id: str, opener: str, text: str, created_at: str
+    db: sqlite3.Connection, user_id: str, opener: str, text: str, created_at: str,
+    segments: Sequence[Segment],
 ) -> Message:
     row = db.execute(
         "SELECT opener FROM group_state WHERE user_id = ?", (user_id,)
     ).fetchone()
     if row is not None and row[0] is not None:
         raise ValueError("上一个话题还没有收掉")
-    kept = _line_of(db, user_id, "topic_open", text, opener, created_at)
+    kept = _line_of(db, user_id, "topic_open", text, opener, created_at, segments)
     if row is None:
         db.execute(
             "INSERT INTO group_state (user_id, opener, spoken, turns) VALUES (?, ?, ?, 1)",
@@ -501,10 +571,13 @@ def _end_topic(db: sqlite3.Connection, user_id: str, text: str, created_at: str)
 
 def _timeline(db: sqlite3.Connection, user_id: str, limit: int) -> list[Message]:
     return [
-        Message(id, user, speaker, kind, text, datetime.fromisoformat(created_at))
-        for id, user, speaker, kind, text, created_at in db.execute(
-            "SELECT id, user_id, speaker, kind, text, created_at FROM group_messages"
-            " WHERE user_id = ? ORDER BY id DESC LIMIT ?",
+        Message(
+            id, user, speaker, kind, text,
+            datetime.fromisoformat(created_at), _segments_of(segments),
+        )
+        for id, user, speaker, kind, text, segments, created_at in db.execute(
+            "SELECT id, user_id, speaker, kind, text, segments, created_at"
+            " FROM group_messages WHERE user_id = ? ORDER BY id DESC LIMIT ?",
             (user_id, limit),
         )
     ][::-1]

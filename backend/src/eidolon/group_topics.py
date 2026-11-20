@@ -28,6 +28,7 @@ from eidolon.group_chat import (
     GroupChats,
     Message,
     Topic,
+    _kept as kept,
     _labelled,
     _spoken_among,
     _when,
@@ -41,6 +42,7 @@ from eidolon.group_turns import (
 from eidolon.moments import relations
 from eidolon.randomness import Random, falls_in
 from eidolon.producer import ProducerProfile, effective_timezone, local_date
+from eidolon.reply_format import Segment
 from eidolon.store import Store
 from eidolon.world import World
 
@@ -133,9 +135,12 @@ class GroupTopics:
         if not candidates:
             return
         opener = self._drawn(candidates, [])
-        line = await self._ask(user_id, opener, candidates, lines, now, OPEN_A_TOPIC)
-        if line is not None:
-            await self.chats.open_topic(user_id, opener.character.id, line, now)
+        opened = await self._ask(user_id, opener, candidates, lines, now, OPEN_A_TOPIC)
+        if opened is not None:
+            spoken, segments = opened
+            await self.chats.open_topic(
+                user_id, opener.character.id, spoken, now, segments
+            )
 
     async def _carry_on(
         self, user_id: str, topic: Topic, lines: Sequence[Message], now: datetime
@@ -160,11 +165,12 @@ class GroupTopics:
             speaker = (
                 self._drawn(eligible, spoken_among) if len(eligible) > 1 else eligible[0]
             )
-            line = await self._ask(user_id, speaker, candidates, lines, now, CARRY_ON)
-            if line is None:
+            said = await self._ask(user_id, speaker, candidates, lines, now, CARRY_ON)
+            if said is None:
                 break
+            spoken, segments = said
             lines = [*lines, await self.chats.say(
-                user_id, line, now, speaker=speaker.character.id
+                user_id, spoken, now, speaker=speaker.character.id, segments=segments
             )]
             topic = Topic(topic.opener, (*topic.spoken, speaker.character.id), topic.turns + 1)
             spoken_among = _spoken_among(lines)
@@ -204,11 +210,12 @@ class GroupTopics:
         lines: Sequence[Message],
         now: datetime,
         directive: str,
-    ) -> str | None:
+    ) -> tuple[str, tuple[Segment, ...]] | None:
         """The speaker's line asked of the deployer's chat model — one speaker among
         several, told to carry on as `directive` says, short where she is not close to the
-        producer — or None, the ask recorded as failed, where the model fails or writes
-        nothing."""
+        producer — kept as her Chinese subtitle with her Japanese original beside it
+        (`group_chat._kept`), or None, the ask recorded as failed, where the model fails or
+        writes nothing."""
         profile = await self._store.get_profile(user_id)
         prompt = speaker_prompt(
             SceneMaterial(
@@ -221,6 +228,7 @@ class GroupTopics:
                 ),
             ),
             speaker, profile, self._world_prompt(speaker, profile, now),
+            subtitled=True,
         )
         recording = self._activity.begin("group", user_id, "", own_llm=False, exempt=False)
         lease = self._config.lease()
@@ -237,8 +245,8 @@ class GroupTopics:
         finally:
             lease.release()
         await recording.finish("success")
-        line = written.strip()
-        return line or None
+        spoken, segments = kept(written)
+        return (spoken, segments) if spoken else None
 
 
     def _world_prompt(

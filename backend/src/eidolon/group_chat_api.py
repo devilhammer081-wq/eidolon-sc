@@ -95,6 +95,9 @@ def _line(line: Message, backend: Backend) -> dict:
         "color": character.color if character else None,
         "kind": line.kind,
         "text": line.text,
+        "segments": [
+            {"ja": segment.ja, "zh": segment.zh} for segment in line.segments
+        ] or None,
         "created_at": line.created_at.isoformat(),
     }
 

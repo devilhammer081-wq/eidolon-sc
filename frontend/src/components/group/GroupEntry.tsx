@@ -1,11 +1,13 @@
 "use client";
 
 import NextLink from "next/link";
+import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { useDirectory } from "@/components/conversations/ConversationDirectory";
 import { copy } from "@/i18n";
 import { groupUnseen } from "@/lib/api";
+import { cn } from "@/lib/utils";
 
 const t = copy.group.entry;
 
@@ -15,6 +17,7 @@ const t = copy.group.entry;
  */
 export function GroupEntry() {
   const { go } = useDirectory();
+  const isCurrent = usePathname() === "/group";
   const [unseen, setUnseen] = useState(false);
   const [closed, setClosed] = useState(false);
 
@@ -37,7 +40,11 @@ export function GroupEntry() {
     <NextLink
       href="/group"
       onClick={() => go("/group")}
-      className="flex w-full items-center gap-3 px-4 py-2.5 text-left outline-none focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:ring-inset hover:bg-muted/60"
+      aria-current={isCurrent ? "page" : undefined}
+      className={cn(
+        "flex w-full items-center gap-3 px-4 py-2.5 text-left outline-none focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:ring-inset",
+        isCurrent ? "bg-muted" : "hover:bg-muted/60",
+      )}
     >
       {/* eslint-disable-next-line @next/next/no-img-element -- 仓库里的群头像 */}
       <img
