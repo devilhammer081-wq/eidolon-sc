@@ -62,49 +62,46 @@ class Interaction:
     scene: str
 
 
-CATALOG: tuple[Interaction, ...] = (
-    Interaction(
-        "pat_head", "摸摸头", "🤚", "（轻轻摸了摸她的头。）", "close", 0.3,
-        "制作人轻轻摸了摸你的头。",
+CATALOG: tuple[Interaction, ...] = tuple(sorted(
+    (
+        Interaction(
+            "pat_head", "摸摸头", "🤚", "（轻轻摸了摸她的头。）", "close", 0.3,
+            "制作人轻轻摸了摸你的头。",
+        ),
+        Interaction(
+            "hug", "拥抱", "🫂", "（轻轻抱了她一下。）", "close", 0.5,
+            "制作人轻轻抱住了你。",
+        ),
+        Interaction(
+            "kiss", "亲吻", "💋", "（在她额头上轻轻亲了一下。）", "intimate", 1.0,
+            "制作人凑近你，轻轻亲了你一下。",
+        ),
+        Interaction(
+            "hold_hands", "牵手", "🤝", "（轻轻牵起了她的手。）", "intimate", 0.6,
+            "制作人轻轻牵起了你的手。",
+        ),
+        Interaction(
+            "high_five", "击掌", "🙌", "（和她击了个掌。）", "trust", 0.2,
+            "制作人笑着朝你伸出手，和你击了个掌。",
+        ),
+        Interaction(
+            "poke_cheek", "戳脸颊", "👉", "（轻轻戳了戳她的脸颊。）", "trust", 0.3,
+            "制作人伸出手指，轻轻戳了戳你的脸颊。",
+        ),
+        Interaction(
+            "tidy_hair", "整理头发", "✨", "（伸手替她理了理头发。）", "intimate", 0.5,
+            "制作人伸手替你理了理有些乱的头发。",
+        ),
+        Interaction(
+            "tidy_collar", "整理衣领", "👔", "（替她整理了一下衣领。）", "intimate", 0.5,
+            "制作人靠近你，替你整理了一下有些歪的衣领。",
+        ),
     ),
-    Interaction(
-        "hug", "拥抱", "🫂", "（轻轻抱了她一下。）", "close", 0.5,
-        "制作人轻轻抱住了你。",
-    ),
-    Interaction(
-        "kiss", "亲吻", "💋", "（在她额头上轻轻亲了一下。）", "intimate", 1.0,
-        "制作人凑近你，轻轻亲了你一下。",
-    ),
-    Interaction(
-        "hold_hands", "牵手", "🤝", "（轻轻牵起了她的手。）", "intimate", 0.6,
-        "制作人轻轻牵起了你的手。",
-    ),
-    Interaction(
-        "high_five", "击掌", "🙌", "（和她击了个掌。）", "trust", 0.2,
-        "制作人笑着朝你伸出手，和你击了个掌。",
-    ),
-    Interaction(
-        "poke_cheek", "戳脸颊", "👉", "（轻轻戳了戳她的脸颊。）", "close", 0.3,
-        "制作人伸出手指，轻轻戳了戳你的脸颊。",
-    ),
-    Interaction(
-        "snack", "递零食", "🍪", "（递给她一份小零食。）", "trust", 0.4,
-        "制作人递给你一份小零食。",
-    ),
-    Interaction(
-        "milk_tea", "递奶茶", "🧋", "（递给她一杯奶茶。）", "trust", 0.4,
-        "制作人递给你一杯温热的奶茶。",
-    ),
-    Interaction(
-        "tidy_hair", "整理头发", "✨", "（伸手替她理了理头发。）", "intimate", 0.5,
-        "制作人伸手替你理了理有些乱的头发。",
-    ),
-    Interaction(
-        "tidy_collar", "整理衣领", "👔", "（替她整理了一下衣领。）", "intimate", 0.5,
-        "制作人靠近你，替你整理了一下有些歪的衣领。",
-    ),
-)
-"""Every action the user may take, in the order the menu shows them."""
+    key=lambda each: TIER_AT[each.recommended_tier],
+))
+"""Every action the user may take, ordered by the tier it is meant for, lowest first —
+the order the menu shows them in. Actions meant for the same tier keep their given
+order (摸摸头 before 拥抱, 牵手 before 整理头发)."""
 
 BY_ID: dict[str, Interaction] = {i.id: i for i in CATALOG}
 

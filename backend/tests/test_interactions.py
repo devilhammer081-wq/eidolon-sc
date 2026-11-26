@@ -51,14 +51,14 @@ def user_message(interaction_id: str | None = None) -> Message:
                    interaction_id=interaction_id)
 
 
-def test_the_catalog_names_every_action_once_with_its_tier():
+def test_the_catalog_names_every_action_once_in_its_tiers_order():
+    """菜单按推荐档位从低到高排；同档位里保持写定的先后。"""
     assert [i.id for i in CATALOG] == [
-        "pat_head", "hug", "kiss", "hold_hands", "high_five", "poke_cheek", "snack",
-        "milk_tea", "tidy_hair", "tidy_collar",
+        "high_five", "poke_cheek", "pat_head", "hug", "kiss", "hold_hands", "tidy_hair",
+        "tidy_collar",
     ]
-    assert [i.name for i in CATALOG] == [
-        "摸摸头", "拥抱", "亲吻", "牵手", "击掌", "戳脸颊", "递零食", "递奶茶", "整理头发",
-        "整理衣领",
+    assert [i.recommended_tier for i in CATALOG] == [
+        "trust", "trust", "close", "close", "intimate", "intimate", "intimate", "intimate",
     ]
     assert len(BY_ID) == len(CATALOG)
     assert all(i.acted.startswith("（") for i in CATALOG)
@@ -87,14 +87,14 @@ def test_weariness_wears_the_action_out_by_half_each_time():
     assert [decay(n) for n in range(4)] == pytest.approx([1.0, 0.5, 0.25, 0.125])
     assert weariness_lines(0) == weariness_lines(1) == []
     assert len(weariness_lines(2)) == 1
-    lines = turn_lines(BY_ID["snack"], "trust", 2)
+    lines = turn_lines(BY_ID["high_five"], "trust", 2)
     assert any("好几次" in line for line in lines)
 
 
 def test_how_many_times_the_same_action_was_taken_lately():
-    messages = [user_message(), user_message("hug"), user_message("snack"),
-                user_message("snack"), Message(2, "character", None, "", "", "2026-01-01T00:00:00+00:00")]
-    assert taken_before(BY_ID["snack"], messages) == 2
+    messages = [user_message(), user_message("hug"), user_message("high_five"),
+                user_message("high_five"), Message(2, "character", None, "", "", "2026-01-01T00:00:00+00:00")]
+    assert taken_before(BY_ID["high_five"], messages) == 2
     assert taken_before(BY_ID["hug"], messages) == 1
     assert taken_before(BY_ID["hug"], [user_message("hug")] * 20) == 8  # the latest turns only
 
@@ -138,7 +138,7 @@ async def test_the_catalog_is_offered_over_the_api(make_client: ClientFactory):
     listed = (await client.get("/api/interactions")).json()
     assert [i["id"] for i in listed] == [i.id for i in CATALOG]
     assert listed[0] == {
-        "id": "pat_head", "name": "摸摸头", "emoji": "🤚", "recommended_tier": "close",
+        "id": "high_five", "name": "击掌", "emoji": "🙌", "recommended_tier": "trust",
     }
 
 
@@ -190,9 +190,9 @@ async def test_an_interaction_changes_her_affinity_by_its_own_worn_out_step(
     await send_interaction(client, conversation_id, "pat_head")
     await send_interaction(client, conversation_id, "hug")  # close too
 
-    # 0.3, then half as much again worn out; the hug would take it past the day's 0.6 for
-    # turns (GAINS_PER_DAY), so it raises only what is left of that.
-    assert value(settings.database_path) == pytest.approx(70.6)
+    # 0.3, then half as much again worn out; the hug's 0.5 takes it to 0.95, still under
+    # the day's 1.0 for turns (GAINS_PER_DAY).
+    assert value(settings.database_path) == pytest.approx(70.95)
     # Taken below its recommended tier, it raises none: trust, a kiss meant for intimate.
     keep(settings.database_path, "producer", 50, clock.now)
     await send_interaction(client, conversation_id, "kiss")
