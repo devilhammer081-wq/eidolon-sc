@@ -168,8 +168,15 @@ export function GroupPage({ isWide }: { isWide: boolean }) {
   };
 
   return (
-    <div className="flex h-full min-h-0 flex-col bg-background text-foreground">
-      <header className="flex shrink-0 items-center gap-2 px-2 py-2">
+    // 聊天底：群头像的浅色版，模糊一层再压一层底色（同外出会话页的做法），气泡和字才读得清。
+    <div className="relative flex h-full min-h-0 flex-col bg-background text-foreground">
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 scale-110 bg-cover bg-center blur-lg"
+        style={{ backgroundImage: "url(/group/283-light.png)" }}
+      />
+      <div aria-hidden className="pointer-events-none absolute inset-0 bg-background/60" />
+      <header className="relative flex shrink-0 items-center gap-2 px-2 py-2">
         {/* 窄屏是独立的一页，回对话列表；宽屏右栏旁边本来就有列表。 */}
         {!isWide && (
           <Button
@@ -192,10 +199,12 @@ export function GroupPage({ isWide }: { isWide: boolean }) {
       </header>
 
       {closed ? (
-        <p className="px-4 py-6 text-center text-subtitle text-muted-foreground">{t.closed}</p>
+        <p className="relative px-4 py-6 text-center text-subtitle text-muted-foreground">
+          {t.closed}
+        </p>
       ) : (
         <>
-          <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-3 py-3">
+          <div className="relative flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-3 py-3">
             {lines === null ? (
               <p className="flex items-center gap-2 text-subtitle text-muted-foreground">
                 <Spinner className="size-4" />
@@ -227,9 +236,11 @@ export function GroupPage({ isWide }: { isWide: boolean }) {
             <div ref={endRef} />
           </div>
 
-          {failed && <p className="px-3 pb-2 text-subtitle text-destructive">{failed}</p>}
+          {failed && (
+            <p className="relative px-3 pb-2 text-subtitle text-destructive">{failed}</p>
+          )}
 
-          <div className="flex shrink-0 items-center gap-2 px-3 py-2">
+          <div className="relative flex shrink-0 items-center gap-2 px-3 py-2">
             <Input
               value={draft}
               onChange={(event) => setDraft(event.target.value.slice(0, MAX_INPUT_LENGTH))}
