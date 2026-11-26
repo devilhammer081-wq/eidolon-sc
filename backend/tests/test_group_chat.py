@@ -469,6 +469,9 @@ async def test_her_line_keeps_its_original_beside_its_subtitle(make_client: Clie
 
     events = await turn(client, "大家晚上好")
 
+    # 说了就要带回复格式：模型才知道写日语加字幕（防回归——少了它新话就是纯中文）。
+    [prompt] = llm.prompts
+    assert "<ja>日语原文</ja><zh>中文字幕</zh>" in prompt[2].content
     kept = next(e for e in events if e["type"] == "done")["messages"]
     [hers] = [line for line in kept if line["speaker"] is not None]
     assert hers["text"] == "大家好！"

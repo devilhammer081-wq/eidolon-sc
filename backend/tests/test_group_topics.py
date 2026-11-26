@@ -57,6 +57,9 @@ async def test_reading_opens_a_topic_when_the_day_has_room(
     assert shown["topic"] == {
         "opener": "mano", "opener_name": "櫻木真乃", "spoken": ["mano"], "turns": 1,
     }
+    # 开话题的话也按回复格式要：日语原文加中文字幕（防回归——少了它新话就是纯中文）。
+    [prompt] = llm.prompts
+    assert "<ja>日语原文</ja><zh>中文字幕</zh>" in prompt[2].content
     [(kind, speaker, text)] = [
         (line["kind"], line["speaker"], line["text"]) for line in shown["messages"]
     ]
