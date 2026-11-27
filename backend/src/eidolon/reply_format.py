@@ -76,6 +76,10 @@ DIRECTED_FORMAT_INSTRUCTIONS = _FORMAT + _DIRECTED_CUES
 """The reply format, for a turn voiced with a model that reads paired tags too, and
 directions as long as a director's (`delivery_cues.TAG_READERS`)."""
 
+TEXT_FORMAT_INSTRUCTIONS = _FORMAT
+"""The reply format for a reply shown as text only (an outing's, the group chat's): Japanese,
+each paragraph with its Chinese subtitle, and no delivery cues — nothing of it is voiced."""
+
 
 def format_instructions(voiced_by: FishAudioModel | None) -> str:
     """The reply format, for a turn voiced, or to be read aloud, with `voiced_by`; None for
@@ -294,6 +298,34 @@ def format_reply(
     marked = ' status="failed"' if photo_failed else ""
     photo = f"<{_PHOTO}{marked}>{photo_tag}</{_PHOTO}>" if photo_tag is not None else ""
     return photo + "".join(f"<ja>{s.ja}</ja><zh>{s.zh}</zh>" for s in segments)
+
+
+ACTION = "action"
+
+
+def take_action(written: str) -> tuple[str, str]:
+    """What she wrote as an interaction action of her own (GLOSSARY.md「互动动作」) — the
+    id between `<action>` and `</action>`, the tag she may put before her reply, and the
+    rest of what she wrote — taken out: one action at the most, the first she wrote, the
+    rest of the tags left as they are. None written, the empty id and `written` as it was."""
+    end = written.find(f"</{ACTION}>")
+    start = written.find(f"<{ACTION}>")
+    if start < 0 or end < start:
+        return "", written
+    id = written[start + len(f"<{ACTION}>"):end].strip()
+    return id, written[:start] + written[end + len(f"</{ACTION}>"):]
+
+
+def parse_said(written: str) -> list[Segment] | None:
+    """The segments of something one said, as written in the reply format; None if it
+    wrote none of the tags, and what it wrote is kept as it is — a plain line, as an
+    outing's lines were before it had subtitles, or one the model wrote without them."""
+    if "<ja>" not in written and "<zh>" not in written:
+        return None
+    parser = ReplyParser()
+    parser.feed(written)
+    parser.finish()
+    return [segment for segment in parser.segments if segment.ja or segment.zh] or None
 
 
 def _partial_suffix(text: str, tags: tuple[str, ...]) -> int:

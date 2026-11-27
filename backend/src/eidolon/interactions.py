@@ -48,53 +48,69 @@ it would otherwise be judged; what would lower it is judged as ever."""
 
 @dataclass(frozen=True)
 class Interaction:
-    """One action the user may take with her: its id, as turns and messages carry it; its
-    Chinese name, as the menu shows it; the line that plays the action as the user's
-    message (`acted`); the tier it is meant for; what it raises her affinity by, worn out
-    as it is repeated; and the scene told the chat model."""
+    """One action the user may take with her, and she with him: its id, as turns and
+    messages carry it; its Chinese name, as the menu shows it; the line that plays the
+    action as the user's message (`acted`), and as hers (`her_acted`); the tier it is
+    meant for; what it raises her affinity by when the user takes it, worn out as it is
+    repeated; and the scene told the chat model of each side of it — his (`scene`) and
+    hers (`her_scene`)."""
 
     id: str
     name: str
     emoji: str
     acted: str
+    her_acted: str
     recommended_tier: Tier
     affinity_delta: float
     scene: str
+    her_scene: str
 
 
 CATALOG: tuple[Interaction, ...] = tuple(sorted(
     (
         Interaction(
-            "pat_head", "摸摸头", "🤚", "（轻轻摸了摸她的头。）", "close", 0.3,
-            "制作人轻轻摸了摸你的头。",
+            "pat_head", "摸摸头", "🤚", "（轻轻摸了摸她的头。）",
+            "（她轻轻摸了摸你的头。）", "close", 0.3,
+            "制作人轻轻摸了摸你的头。", "你轻轻摸了摸制作人的头。",
         ),
         Interaction(
-            "hug", "拥抱", "🫂", "（轻轻抱了她一下。）", "close", 0.5,
-            "制作人轻轻抱住了你。",
+            "hug", "拥抱", "🫂", "（轻轻抱了她一下。）",
+            "（她轻轻抱住了你。）", "close", 0.5,
+            "制作人轻轻抱住了你。", "你轻轻抱住了制作人。",
         ),
         Interaction(
-            "kiss", "亲吻", "💋", "（在她额头上轻轻亲了一下。）", "intimate", 1.0,
-            "制作人凑近你，轻轻亲了你一下。",
+            "kiss", "亲吻", "💋", "（在她额头上轻轻亲了一下。）",
+            "（她在你额头上轻轻亲了一下。）", "intimate", 1.0,
+            "制作人凑近你，轻轻亲了你一下。", "你在制作人额头上轻轻亲了一下。",
         ),
         Interaction(
-            "hold_hands", "牵手", "🤝", "（轻轻牵起了她的手。）", "intimate", 0.6,
-            "制作人轻轻牵起了你的手。",
+            "hold_hands", "牵手", "🤝", "（轻轻牵起了她的手。）",
+            "（她轻轻牵起了你的手。）", "intimate", 0.6,
+            "制作人轻轻牵起了你的手。", "你轻轻牵起了制作人的手。",
         ),
         Interaction(
-            "high_five", "击掌", "🙌", "（和她击了个掌。）", "trust", 0.2,
+            "high_five", "击掌", "🙌", "（和她击了个掌。）",
+            "（她和你击了个掌。）", "trust", 0.2,
             "制作人笑着朝你伸出手，和你击了个掌。",
+            "你笑着朝制作人伸出手，和他击了个掌。",
         ),
         Interaction(
-            "poke_cheek", "戳脸颊", "👉", "（轻轻戳了戳她的脸颊。）", "trust", 0.3,
+            "poke_cheek", "戳脸颊", "👉", "（轻轻戳了戳她的脸颊。）",
+            "（她轻轻戳了戳你的脸颊。）", "trust", 0.3,
             "制作人伸出手指，轻轻戳了戳你的脸颊。",
+            "你伸出手指，轻轻戳了戳制作人的脸颊。",
         ),
         Interaction(
-            "tidy_hair", "整理头发", "✨", "（伸手替她理了理头发。）", "intimate", 0.5,
+            "tidy_hair", "整理头发", "✨", "（伸手替她理了理头发。）",
+            "（她伸手替你理了理头发。）", "intimate", 0.5,
             "制作人伸手替你理了理有些乱的头发。",
+            "你伸手替制作人理了理有些乱的头发。",
         ),
         Interaction(
-            "tidy_collar", "整理衣领", "👔", "（替她整理了一下衣领。）", "intimate", 0.5,
+            "tidy_collar", "整理衣领", "👔", "（替她整理了一下衣领。）",
+            "（她替你整理了一下衣领。）", "intimate", 0.5,
             "制作人靠近你，替你整理了一下有些歪的衣领。",
+            "你靠近制作人，替他整理了一下有些歪的衣领。",
         ),
     ),
     key=lambda each: TIER_AT[each.recommended_tier],
@@ -133,6 +149,33 @@ def reaction_lines(interaction: Interaction, tier: Tier | None) -> list[str]:
     """How she is told to take the action, by where her `tier` stands against its
     recommended one."""
     return [_BELOW if reaches(interaction, tier) == "below" else _AT_OR_ABOVE]
+
+
+def she_may(interaction: Interaction, tier: Tier | None) -> bool:
+    """Whether she, standing in `tier`, may take `interaction` of her own accord: she
+    never takes one below its recommended tier (her doing a thing the two of them are
+    not close enough for is not hers to choose), and with affinity off she may any of
+    them, as she is taken to stand in trust."""
+    return reaches(interaction, tier) != "below"
+
+
+HER_ACTION_INSTRUCTIONS = """# 你也可以做互动动作
+偶尔，在合适的时候，你可以对制作人做一个互动动作：在回复里用 <action>动作id</action> 写出，放在台词之外（后面再按回复格式写台词），一次回复最多做一个。
+- 只在真的合适时做：大多数回合不做，别连续两个回合做动作，也别每次都做同一个。
+- 动作和你此刻与制作人的关系要相称，按清单里的来，清单之外、或者越级的动作会当作没发生。"""
+
+
+def her_action_lines(
+    tier: Tier | None, allowed: Sequence[Interaction]
+) -> list[str]:
+    """What her prompt is told of the actions she may take of her own accord, standing in
+    `tier` (None with affinity off): the instructions, and the `allowed` ones — already
+    gated by the caller (`she_may`) — as the id she writes and what it plays. None allowed,
+    nothing at all: the model is not told of actions it may not take."""
+    if not allowed:
+        return []
+    listed = "\n".join(f"- <action>{each.id}</action>：{each.her_scene}" for each in allowed)
+    return [HER_ACTION_INSTRUCTIONS, listed]
 
 
 def taken_before(interaction: Interaction, messages: Sequence[Message]) -> int:

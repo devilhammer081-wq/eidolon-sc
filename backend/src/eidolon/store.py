@@ -332,13 +332,16 @@ class Message:
             [Segment(without_cues(s.ja), without_cues(s.zh)) for s in self.segments],
             self.affinity,
             self.photo,
+            interaction_id=self.interaction_id,
         )
 
     def shown(self) -> dict:
-        """The message as the browser is told it: as people see it, with its photo's id,
-        status and reason if it has one, no key for it if not."""
+        """The message as the browser is told it: as people see it, how it changed her
+        affinity as the browser reads that (`Change.shown`), with its photo's id, status and
+        reason if it has one, no key for it if not."""
         shown = asdict(self.without_cues())
         del shown["photo"]
+        shown["affinity"] = self.affinity and self.affinity.shown()
         return shown | ({"photo": self.photo.shown()} if self.photo else {})
 
 
@@ -374,11 +377,14 @@ class ConversationEvent:
 
     def shown(self) -> dict:
         """As the browser is told it: whether she liked the gift is for her prompt alone;
-        which gift, for a gift's only; since when she is unwell, for her being unwell's."""
+        which gift, for a gift's only; since when she is unwell, for her being unwell's; how
+        it changed her affinity as the browser reads that (`Change.shown`)."""
         hidden = {"liked"} | ({"gift_id"} if self.gift_id is None else set()) | (
             {"first_day", "days_ago"} if self.kind != "unwell" else set()
         )
-        return {k: v for k, v in asdict(self).items() if k not in hidden}
+        return {k: v for k, v in asdict(self).items() if k not in hidden} | {
+            "affinity": self.affinity and self.affinity.shown()
+        }
 
 
 @dataclass(frozen=True)
@@ -1486,6 +1492,7 @@ def add_turn(
     ends: bool = False,
     photo: NewPhoto | None = None,
     interaction_id: str | None = None,
+    her_interaction_id: str | None = None,
 ) -> Message:
     """Record the user's input, said at `said_at` (as `timestamp` gives it; now by
     default), and the character's reply together, through `db`, in the transaction the
@@ -1493,17 +1500,21 @@ def add_turn(
     changed her affinity, if it did, and for a typed turn what it came to (`typed`);
     returns the reply. The photo she sends with it, if any, is recorded being generated.
     Should the turn take an interaction action (GLOSSARY.md「互动动作」), the user's message
-    is marked with its `interaction_id`. Should she end the conversation after it
-    (`ends`), that is recorded with it, after it (`ended`). It answers her latest
-    reach-out in it (`_answer_reach_out`). Into a conversation she has ended already,
-    nothing is recorded: `ConversationEnded`."""
+    is marked with its `interaction_id`; should she take one of her own in her reply
+    (`her_interaction_id`), her message is marked with it the same way. Should she end the
+    conversation after it (`ends`), that is recorded with it, after it (`ended`). It
+    answers her latest reach-out in it (`_answer_reach_out`). Into a conversation she has
+    ended already, nothing is recorded: `ConversationEnded`."""
     if read_ended(db, conversation_id) is not None:
         raise ConversationEnded()
     _insert_message(
         db, conversation_id, "user", text=text, created_at=said_at, typed=typed,
         interaction_id=interaction_id,
     )
-    replied = _insert_message(db, conversation_id, "character", segments=reply, affinity=affinity)
+    replied = _insert_message(
+        db, conversation_id, "character", segments=reply, affinity=affinity,
+        interaction_id=her_interaction_id,
+    )
     if photo is not None:
         now = _now()
         db.execute(

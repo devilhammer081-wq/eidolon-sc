@@ -144,7 +144,15 @@ from eidolon.her_now import (
     Occasion,
 )
 from eidolon.her_weather import KnownWeather
-from eidolon.interactions import Interaction, affinity_step, taken_before, turn_lines
+from eidolon import interactions
+from eidolon.interactions import (
+    Interaction,
+    affinity_step,
+    her_action_lines,
+    she_may,
+    taken_before,
+    turn_lines,
+)
 from eidolon.judge import JudgeError
 from eidolon.letter_prompt import Earlier, letters_section, read_earlier
 from eidolon.llm import ChatLLM, ChatMessage, Reasoning, Tool, ToolCall, TurnLLMs
@@ -160,6 +168,7 @@ from eidolon.reply_format import (
     Segment,
     SegmentComplete,
     SegmentDelta,
+    take_action,
     SpeechDelta,
     format_reply,
 )
@@ -881,6 +890,18 @@ class ConversationEngine:
         world_prompt = (
             self._world.prompt(character.name, local_date(now, timezone)) if self._world else None
         )
+        # The actions she may take of her own accord (GLOSSARY.md「互动动作」), offered to
+        # her: those her tier reaches, without the one she took in her previous line, that
+        # she not do the same thing twice in a row.
+        taken_by_her = next(
+            (m.interaction_id for m in reversed(messages)
+             if m.role == "character" and m.interaction_id is not None),
+            None,
+        )
+        allowed = tuple(
+            each for each in interactions.CATALOG
+            if she_may(each, affinity and affinity.tier) and each.id != taken_by_her
+        )
         photo_asked = (
             photo_turn(asked_photo, affinity and affinity.tier, eligibility)
             if eligibility is not None else None
@@ -895,6 +916,7 @@ class ConversationEngine:
                     turn_lines(worn[0], affinity and affinity.tier, worn[1])
                     if worn is not None else []
                 ),
+                *her_action_lines(affinity and affinity.tier, allowed),
                 self._now_section(
                     known, occasion, now, timezone, profile, last_contact, affinity_lines,
                     known_weather,
@@ -912,14 +934,13 @@ class ConversationEngine:
         her_look_ups = self._her_now.look_ups(known, occasion)
         tools: list[Tool] = [*([RECALL_STORY_TOOL] if self._retrieval else []), *her_look_ups]
         parser = ReplyParser()
-        step, asked_again = 0, False
+        step, asked_again, said = 0, False, ""
         try:
             while True:
                 # The last round offers the same tools, as some models drop what they thought
                 # once the tools change, but forbids calling them; so does a turn that
                 # already recalled an episode, its one round its last.
                 forbidden = step == MAX_TOOL_ROUNDS or retrieved.recalled
-                said = ""
                 calls: list[ToolCall] = []
                 reasoning: list[Reasoning] = []
                 markup = _BeforeMarkup()
@@ -998,6 +1019,17 @@ class ConversationEngine:
 
         if not parser.complete:
             raise EmptyReply("对话模型没有返回任何内容")
+        # Her action of her own accord (GLOSSARY.md「互动动作」), if her reply carries one:
+        # taken out of it — the tag is not her words — and kept only should her tier reach
+        # it; one she may not take is quietly ignored, her words standing as they are.
+        her_action = take_action(said)
+        said = her_action[1]
+        hers = (
+            interactions.BY_ID[her_action[0]]
+            if her_action[0] in interactions.BY_ID and she_may(
+                interactions.BY_ID[her_action[0]], affinity and affinity.tier
+            ) else None
+        )
         typed = (
             None if in_call is not None
             else Typed(hurt(judged), judged is not None and judged.out_of_line)
@@ -1012,6 +1044,7 @@ class ConversationEngine:
             conversation, text, said_at, parser.complete, judged, affinity, typed,
             ends_conversation, photo, her_day,
             worn,
+            hers and hers.id,
         ))
         try:
             reply, affinity, rewarded, unwell = await asyncio.shield(keeping)
@@ -1235,6 +1268,7 @@ class ConversationEngine:
         photo: _Photo,
         her_day: HerDay,
         interaction: tuple[Interaction, int] | None,
+        her_interaction_id: str | None = None,
     ) -> tuple[Message, Status | None, Rewarded | None, ConversationEvent | None]:
         """Record the turn (`_record`), and tell what comes of it: should it begin a
         cooldown, those `on_cooled` have; the photos, whether her reply is recorded with the
@@ -1247,6 +1281,7 @@ class ConversationEngine:
                 conversation, text, said_at, reply, judged, affinity, typed, ends_conversation,
                 NewPhoto(photo.id, photo.tag) if photo.id else None,
                 self._happenings and self._happenings.open, her_day, interaction,
+                her_interaction_id,
             )
         except Exception:
             if photo.id is not None and self._photos is not None:
@@ -1279,6 +1314,7 @@ class ConversationEngine:
         happenings_open: Open | None,
         her_day: HerDay,
         interaction: tuple[Interaction, int] | None,
+        her_interaction_id: str | None = None,
     ) -> tuple[Message, Status | None, Rewarded | None, ConversationEvent | None]:
         """Record the turn, as said at `said_at`, through `db`, in one transaction with all
         it changes: her being unwell before it, should `her_day` have her in her period and
@@ -1304,7 +1340,7 @@ class ConversationEngine:
             )
         message = add_turn(
             db, conversation.id, text, reply, change, said_at, typed, ends_conversation,
-            photo, interaction and interaction[0].id,
+            photo, interaction and interaction[0].id, her_interaction_id,
         )
         rewarded = (
             self._happenings.turn_recorded(

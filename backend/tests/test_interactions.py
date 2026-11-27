@@ -25,10 +25,13 @@ from eidolon.interactions import (
     affinity_step,
     decay,
     reaches,
+    she_may,
     taken_before,
     turn_lines,
     weariness_lines,
 )
+from eidolon.reply_format import take_action
+from tests.test_text_turn import send_turn
 from eidolon.store import Message
 from tests.conftest import ClientFactory
 from tests.fakes import FAKE_JUDGE, FakeClock, FakeServiceClients, FakeLLM, level
@@ -197,3 +200,104 @@ async def test_an_interaction_changes_her_affinity_by_its_own_worn_out_step(
     keep(settings.database_path, "producer", 50, clock.now)
     await send_interaction(client, conversation_id, "kiss")
     assert value(settings.database_path) == pytest.approx(50)
+
+
+# --- 她主动的互动动作（spec 的三条边界：只做 1:1、不加分、低于推荐档位她不会做） ---
+
+
+def test_she_may_only_what_her_tier_reaches():
+    """档位门控：够推荐档位才可选，低了不行；好感度关着时全都可以（视作信任）。"""
+    hug = BY_ID["hug"]  # meant for close
+    assert [she_may(hug, t) for t in ("cold", "distant", "trust", "close", "intimate")] == [
+        False, False, False, True, True,
+    ]
+    assert she_may(hug, None) is True
+
+
+def test_her_side_of_every_action_is_written():
+    """每个动作都有她做的那一侧：叙述行和给她的场景。"""
+    assert all(i.her_acted.startswith("（") and i.her_acted.endswith("。）") for i in CATALOG)
+    assert all("你" in i.her_scene and "制作人" in i.her_scene for i in CATALOG)
+    assert all(i.acted != i.her_acted for i in CATALOG)
+
+
+def test_take_action_reads_the_tag_out_of_her_reply():
+    """标签在台词之外：抽出来，台词原样留下；没写或没关上就什么都没有。"""
+    assert take_action("<action>hug</action><ja>ぎゅっ</ja><zh>抱住你</zh>") == (
+        "hug", "<ja>ぎゅっ</ja><zh>抱住你</zh>",
+    )
+    assert take_action("没有动作的回复") == ("", "没有动作的回复")
+    assert take_action("<action>") == ("", "<action>")
+    # 写了两个的只算第一个
+    assert take_action("<action>hug</action>台词<action>kiss</action>") == (
+        "hug", "台词<action>kiss</action>",
+    )
+
+
+async def test_she_takes_an_action_of_her_own_in_her_reply(
+    make_client: ClientFactory, settings: Settings
+):
+    """她够档位：清单进 prompt，她写的动作全链路落库（她自己那条标着 id）。"""
+    clients = FakeServiceClients()
+    clients.judge.judgings = [level(4)]
+    llm = FakeLLM(["<action>hug</action><ja>ぎゅっと</ja><zh>抱住了你</zh>"])
+    clock = FakeClock()
+    client = make_client(llm, clients=clients, clock=clock)
+    conversation_id = await start_conversation(client)
+    keep(settings.database_path, "producer", 70, clock(), character="mano")
+
+    await send_turn(client, conversation_id, "辛苦了")
+
+    # 她的清单在 prompt 里：拥抱（亲近）够档位，亲她那侧的场景也在。
+    system = "\n".join(m.content for m in llm.prompts[0] if m.role == "system")
+    assert "<action>hug</action>" in system and BY_ID["hug"].her_scene in system
+    # 不够档位的（亲密档的亲吻，她只有亲近）不在清单里。
+    assert "<action>kiss</action>" not in system
+    # 她的消息带着动作，用户的没有；动作加不了好感（只有 judge 的那一步）。
+    messages = (await client.get(f"/api/conversations/{conversation_id}/messages")).json()
+    assert [m.get("interaction_id") for m in messages] == [None, "hug"]
+    # 她的动作不加分（spec 的第二条边界）：好感只按 judge 对台词的评判走一步。
+    assert value(settings.database_path) == 70.2
+
+
+async def test_an_action_beyond_her_tier_is_quietly_ignored(
+    make_client: ClientFactory, settings: Settings
+):
+    """她不够档位：不在清单里，硬写也当作没发生——台词照常。"""
+    clients = FakeServiceClients()
+    clients.judge.judgings = [level(0)]
+    llm = FakeLLM(["<action>kiss</action><ja>えっと</ja><zh>那个……</zh>"])
+    client = make_client(llm, clients=clients, clock=FakeClock())
+    conversation_id = await start_conversation(client)  # trust: kiss (intimate) is beyond her
+
+    await send_turn(client, conversation_id, "辛苦了")
+
+    system = "\n".join(m.content for m in llm.prompts[0] if m.role == "system")
+    assert "<action>kiss</action>" not in system
+    messages = (await client.get(f"/api/conversations/{conversation_id}/messages")).json()
+    assert [m.get("interaction_id") for m in messages] == [None, None]
+    # 台词没有带标签地留下来了。
+    assert messages[-1]["zh"] == "那个……"
+
+
+async def test_she_does_not_do_the_same_action_twice_in_a_row(
+    make_client: ClientFactory, settings: Settings
+):
+    """她上一条做过的动作，这一回合的清单里不给：换个动作或先不做出清单的事。"""
+    clients = FakeServiceClients()
+    clients.judge.judgings = [level(4)]
+    llm = FakeLLM(
+        ["<action>hug</action><ja>ぎゅっと</ja><zh>抱住了你</zh>"],
+        ["<ja>またね</ja><zh>下次见</zh>"],
+    )
+    clock = FakeClock()
+    client = make_client(llm, clients=clients, clock=clock)
+    conversation_id = await start_conversation(client)
+    keep(settings.database_path, "producer", 70, clock(), character="mano")
+    await send_turn(client, conversation_id, "辛苦了")
+
+    await send_turn(client, conversation_id, "明天见")
+
+    system = "\n".join(m.content for m in llm.prompts[1] if m.role == "system")
+    assert "<action>hug</action>" not in system  # her previous one held back
+    assert "<action>pat_head</action>" in system  # others still offered
