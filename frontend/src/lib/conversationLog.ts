@@ -26,6 +26,9 @@ export type Entry =
       photo: Photo | null;
       photosUsedUp?: string;
       reachOut?: true;
+      /** Her own interaction action (GLOSSARY.md「互动动作」), by its id, should she take one in
+       * her reply; the history reads it back the same way. */
+      interactionId?: string;
     };
 
 /** The exchange under way: the user's words and the reply, both the last entries shown.
@@ -226,5 +229,6 @@ function toEntry(message: Recorded): Entry {
         at: message.created_at,
         affinity: message.affinity,
         photo: message.photo ?? null,
+        ...(message.interaction_id && { interactionId: message.interaction_id }),
       };
 }

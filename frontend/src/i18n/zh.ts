@@ -221,6 +221,8 @@ export const zh = {
       recommendedTier: (tier: string) => `推荐${tier}`,
       /** 消息流里一条动作的居中胶囊：动作的 emoji 加名字（如「🤚 摸摸头」）。 */
       capsule: (emoji: string, name: string) => `${emoji} ${name}`,
+      /** 她自己做的动作的居中胶囊，在她的台词上方：她的名字加动作（如「真乃 拥抱了你」）。 */
+      hersCapsule: (name: string, action: string) => `${name} ${action}`,
     },
     /** 消息区里跨天处的日期条；昨天、更早的写法和列表一样（conversationList）。 */
     today: "今天",
@@ -321,7 +323,10 @@ export const zh = {
     ownLLMExempts: "带上自己的 LLM，文字对话就不受限额。",
     /** 页首的好感度标识和它点开的说明（GLOSSARY.md「好感度」「冷却」）。只说档位，不说数值。 */
     affinity: {
-      tiers: { cold: "冷淡", distant: "疏远", trust: "信任", close: "亲近", intimate: "亲密" },
+      tiers: {
+        cold: "冷淡", distant: "疏远", trust: "信任", close: "亲近", intimate: "亲密",
+        loving: "爱意", beloved: "挚爱",
+      },
       /** 每一档的大意，写在说明里档名下面。 */
       notes: {
         cold: "她对你明显冷淡，话很少。",
@@ -329,6 +334,8 @@ export const zh = {
         trust: "你们一直以来的关系。",
         close: "她比平时更放松，更愿意和你说心里话。",
         intimate: "她非常信赖你，会说平时不轻易说的心事。",
+        loving: "她很爱你，说话里带着不掩饰的喜欢。",
+        beloved: "你是她挚爱的人，她把你放在心里最重的位置。",
       },
       label: (tier: string) => `你们的关系：${tier}`,
       title: (tier: string) => `你们现在的关系：${tier}`,
@@ -336,7 +343,7 @@ export const zh = {
       coolingNote: (until: string) => `${until} 以后可以再找她。送她一件礼物，她会消气得快一些。`,
       /** 冷却中换掉输入栏的那一行。 */
       coolingComposer: (name: string, until: string) => `${name}现在不想说话。${until} 以后可以再找她`,
-      tiersLabel: "五个档位",
+      tiersLabel: "七个档位",
       rule: "她对你的态度会随你说的话变化。低于「信任」时，不联系也会慢慢回到「信任」。",
       /** 解除时刻：按制作人的时区写成今天或明天加时刻。 */
       today: "今天",
@@ -348,6 +355,12 @@ export const zh = {
         further: (name: string, tier: string) => `${name}和你疏远了一些：${tier}`,
         happier: (name: string) => `${name}有点开心`,
         unhappier: (name: string) => `${name}有点不高兴`,
+        /** 同档的变化再细一层：不高兴是难过还是生气，开心是害羞还是纯粹的开心；判断模型没说时用上面两句。 */
+        moods: {
+          sad: (name: string) => `${name}有点难过`,
+          angry: (name: string) => `${name}有点生气`,
+          shy: (name: string) => `${name}有点害羞`,
+        },
         /** 送礼让她解除了冷却。 */
         thawed: (name: string) => `${name}愿意和你说话了`,
       },
@@ -499,6 +512,8 @@ export const zh = {
     loadFailed: "信没能载入",
     /** 信封上写的场合，越短越好；几个场合合在一封时用「、」连起来。 */
     occasions: {
+      beloved: "挚爱",
+      loving: "爱意",
       close: "更近了一步",
       intimate: "亲密",
       complete: "集齐",
@@ -2098,17 +2113,26 @@ export const zh = {
       ongoing: "进行中",
       view: "打开",
     },
-    /** 会话页（票 05 用，先占位）。 */
+    /** 会话页：消息流、事件顺序和推进、结算。 */
     session: {
       inputPlaceholder: "说点什么，@名字只让她回应",
       send: "发送",
-      events: "触发事件",
       eventFailed: "事件没有发生成，再试一次",
+      /** 本次外出的事件顺序：已经定好，制作人只往前推。 */
+      itinerary: "本次外出",
+      advance: "推进",
+      eventsDone: "事件已走完",
+      eventPast: "已发生",
+      eventNow: "进行中",
+      eventNext: "下一个",
+      eventSkipped: "未发生",
+      noEvents: "这次外出没有安排事件",
       end: "结束外出",
       ending: "这次外出结束了",
       turnFailed: "这句话没有送到，再试一次",
       /** 结算。 */
-      settled: (names: string) => `${names} 记住了这次外出`,
+      settled: (names: string) => `和 ${names} 一起走完了这次外出`,
+      gift: (name: string) => `获得了礼物：${name}`,
     },
     /** 载入失败等。 */
     failed: "外出记录没有读到，刷新再试",

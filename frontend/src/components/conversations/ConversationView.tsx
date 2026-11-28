@@ -700,7 +700,7 @@ function Messages({
                   </Capsule>
                 </MessageScrollerItem>
               ) : line.entry.kind === "user" && line.entry.interactionId ? (
-                // 一条互动动作（GLOSSARY.md「互动动作」）：居中的轻量胶囊（如「🤚 摸摸头」），不成气泡；
+                // 用户做的互动动作（GLOSSARY.md「互动动作」）：居中的轻量胶囊（如「🤚 摸摸头」），不成气泡；
                 // 目录还没读到时先写后端给的那句叙述行，读到了（或目录里没有了）也一样。
                 <MessageScrollerItem key={line.entry.key} messageId={line.entry.key} className="my-2 flex justify-center">
                   <Capsule>
@@ -718,6 +718,20 @@ function Messages({
                 </MessageScrollerItem>
               ) : (
                 <MessageScrollerItem key={line.entry.key} messageId={line.entry.key} className={cn(line.first && "mt-2")}>
+                  {/* 她做的互动动作（GLOSSARY.md「互动动作」）：台词上方的居中胶囊（如「真乃 拥抱了你」），
+                      台词照常成气泡；目录还没读到或没有了时写动作的 id。流式过程中不出现（done 才带）。 */}
+                  {line.entry.kind === "character" && line.entry.interactionId && (
+                    <div className="mb-2 flex justify-center">
+                      <Capsule>
+                        {(() => {
+                          const action = interactionOf.get(line.entry.interactionId);
+                          return copy.conversation.interactions.hersCapsule(
+                            character.name, action ? action.name : line.entry.interactionId,
+                          );
+                        })()}
+                      </Capsule>
+                    </div>
+                  )}
                   <Bubbled
                     line={line}
                     entry={line.entry}

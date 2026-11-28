@@ -153,8 +153,9 @@ export type Message = {
   affinity: AffinityChange | null;
   /** The photo she sent with her reply (GLOSSARY.md「照片」); none on a reply without one. */
   photo?: Photo;
-  /** The interaction action (GLOSSARY.md「互动动作」) the user's message took, by its id;
-   * null (or absent) on every other message, hers included. */
+  /** The interaction action (GLOSSARY.md「互动动作」) the message took, by its id: the user's,
+   * should the turn take one; hers, should she take one of her own in her reply; null (or
+   * absent) on every other message. */
   interaction_id?: string | null;
 };
 
@@ -1135,11 +1136,19 @@ async function* serverSentEvents<T>(res: Response): AsyncGenerator<T> {
 // 外出（GLOSSARY.md「外出」）：入口、发起与历史。
 
 /** One line of an outing: who said it (null for the producer), its kind (opening, say,
- * event, ending), the event's id for an event line, and when. */
+ * event, ending), what it says — her Chinese subtitle, his words, a scene — her Japanese
+ * original with that subtitle where she said it in the reply format (`segments`), the
+ * event's id for an event line, and when. */
+export type OutingSegment = {
+  ja: string;
+  zh: string;
+};
+
 export type OutingMessage = {
   speaker: string | null;
   kind: "opening" | "say" | "event" | "ending";
   text: string;
+  segments: OutingSegment[];
   event: string | null;
   created_at: string;
 };
@@ -1151,13 +1160,16 @@ export type OutingParticipant = {
   color: string | null;
 };
 
-/** An outing as the browser reads it, with its lines and who, if anyone, was met. */
+/** An outing as the browser reads it, with its lines, the events written for it in the
+ * order they are to happen, how many have happened, and who, if anyone, was met. */
 export type Outing = {
   id: number;
   kind: "solo" | "outing";
   location_id: string;
   location_name: string;
   participants: OutingParticipant[];
+  events: { id: string; trigger: string }[];
+  event_index: number;
   status: "opening" | "ongoing" | "ended";
   created_at: string;
   ended_at: string | null;
@@ -1209,28 +1221,28 @@ export async function startOuting(characterIds: string[], locationId: string): P
   }))).outing;
 }
 
-/** An outing's event set off: the event and the lines it left. */
-export async function setOffOutingEvent(outingId: number, eventId: string): Promise<{
+/** The next of the outing's events set off: the event, the lines it left, and how many
+ * events have happened now. */
+export async function advanceOuting(outingId: number): Promise<{
   event: { id: string; trigger: string };
   messages: OutingMessage[];
+  event_index: number;
 }> {
   return json<{
     event: { id: string; trigger: string };
     messages: OutingMessage[];
-  }>(await api(`/api/outings/${outingId}/events`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ event_id: eventId }),
-  }));
+    event_index: number;
+  }>(await api(`/api/outings/${outingId}/advance`, { method: "POST" }));
 }
 
-/** What one of them came to when the outing ended; `change` null where affinity is off. */
+/** What one of them came to when the outing ended; `change` null where affinity is off,
+ * and the gift the producer was given on its account, if any. Nothing of it is remembered. */
 export type OutingSettlement = {
   character_id: string;
   character_name: string;
   change: { up: boolean; tier: string; tier_changed: boolean; cooldown: boolean } | null;
   affinity: { tier: string; cooldown_until: string | null };
-  memory: string | null;
+  gift: { id: string; name: string } | null;
 };
 
 /** The outing over: what it came to for each of them, and the outing as it stands. */
